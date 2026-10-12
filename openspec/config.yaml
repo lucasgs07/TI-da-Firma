@@ -1,34 +1,51 @@
 schema: spec-driven
+
 githubCopilot:
   cloudAgent: true
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+context: |
+  Projeto: Plataforma de Gestão Interna Empresarial.
+  Antes de elaborar propostas ou especificações, consulte:
+  - docs/project-overview.md
+  - docs/domain-model.md
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  O projeto busca centralizar o gerenciamento de chamados,
+  ativos, tarefas, usuários e departamentos.
+  O backend, banco de dados, autenticação, APIs e regras de
+  negócio serão desenvolvidos com o Xano.
+  O frontend ainda precisa ser definido entre Streamlit e Reflex.
+  A inteligência artificial deve apoiar os usuários, sem
+  substituir decisões de responsáveis humanos.
+  Preserve o escopo do MVP e registre decisões técnicas pendentes
+  em vez de assumir respostas sem confirmação.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+rules:
+  proposal:
+    - Descreva o problema, os objetivos e o escopo da mudança.
+    - Considere as funcionalidades previstas para o MVP.
+    - Registre dúvidas e decisões técnicas pendentes.
+    - Evite incluir funcionalidades não solicitadas.
+  specs:
+    - Escreva requisitos claros e critérios de aceitação verificáveis.
+    - Considere os diferentes perfis de acesso do sistema.
+    - Não invente regras de negócio ou atributos do banco de dados.
+    - Diferencie requisitos do MVP de melhorias futuras.
+  tasks:
+    - Divida o trabalho em tarefas pequenas e verificáveis.
+    - Identifique dependências entre tarefas.
+    - Inclua testes ou critérios de validação quando aplicável.
+    - Considere segurança e controle de acesso.
+
+operations:
+  apply:
+    guidance:
+      - Leia e siga as especificações e tarefas aprovadas.
+      - Implemente somente o escopo definido na mudança.
+      - Evite alterações não relacionadas à tarefa.
+      - Execute testes adequados e informe os resultados.
+      - Não considere uma tarefa concluída sem verificar sua implementação.
+  archive:
+    guidance:
+      - Confira se a implementação corresponde às especificações.
+      - Registre pendências ou limitações relevantes.
+      - Não afirme que testes passaram sem evidências.
