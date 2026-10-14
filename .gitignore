@@ -1,14 +1,7 @@
-<<<<<<< HEAD
-.states
-assets/external/
-*.db
-*.py[cod]
-.web
-=======
 .web
 *.py[cod]
 .states
 *.db
 assets/external/
->>>>>>> b1a7dd5395ed47c47d7c8247629a55ba2dc69146
 __pycache__/
+.env

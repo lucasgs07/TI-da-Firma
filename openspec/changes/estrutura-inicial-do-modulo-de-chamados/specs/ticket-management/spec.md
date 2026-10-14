@@ -7,12 +7,48 @@ A capacidade de gestão de chamados permite registrar, acompanhar e resolver sol
 ## ADDED Requirements
 
 ### Requirement: registro do chamado e contexto inicial (MUST)
-O sistema deve permitir que um usuário com perfil adequado registre um chamado com os dados mínimos necessários para descrever a solicitação, o contexto e a origem do pedido.
+O sistema MUST permitir que um usuário autenticado e autorizado registre um chamado usando título, descrição, categoria e prioridade. A tela deve mostrar o usuário autenticado como solicitante, sem permitir sua edição; o Xano deve definir o solicitante e o status inicial.
 
 #### Scenario: criação de chamado por funcionário
 - **QUANDO** um funcionário abre um chamado com descrição do problema e dados essenciais do contexto
 - **ENTÃO** o sistema deve persistir o chamado, registrar o solicitante e manter o status inicial em um estado válido para o fluxo de atendimento
 - **E** o sistema deve permitir que o chamado seja consultado posteriormente pelo solicitante e pelo responsável autorizado
+
+#### Scenario: carregamento da tela e identificação do solicitante
+- **QUANDO** um usuário autenticado com perfil autorizado acessa a tela de abertura
+- **ENTÃO** o sistema deve exibir o nome retornado pelo perfil seguro da sessão em um campo somente para leitura
+- **E** deve carregar categorias e prioridades dos endpoints autenticados do Xano antes de permitir o envio
+
+#### Scenario: sessão ausente ou perfil sem permissão de criação
+- **QUANDO** um usuário sem sessão válida ou sem perfil autorizado tenta acessar ou enviar o formulário
+- **ENTÃO** a interface deve impedir o acesso à tela protegida quando a sessão não for válida
+- **E** o Xano deve rejeitar a criação não autorizada, sem confiar no controle visual do frontend
+
+#### Scenario: opções de categoria ou prioridade indisponíveis
+- **QUANDO** uma consulta de categorias ou prioridades falha ou retorna uma lista vazia
+- **ENTÃO** a tela deve apresentar o estado de erro recuperável ou de ausência de opções
+- **E** deve impedir o envio até que existam opções válidas, sem inventar valores
+
+#### Scenario: validação dos campos obrigatórios
+- **QUANDO** o usuário tenta enviar o formulário com título ou descrição vazios, título acima de 200 caracteres ou descrição acima de 10000 caracteres
+- **ENTÃO** a tela deve informar quais campos precisam de correção e não deve apresentar o envio como bem-sucedido
+- **E** o Xano deve continuar aplicando sua própria validação ao receber a requisição
+
+#### Scenario: opções de classificação obrigatórias
+- **QUANDO** o usuário tenta enviar o formulário sem selecionar uma categoria ou uma prioridade válida retornada pelo Xano
+- **ENTÃO** a tela deve indicar o campo que precisa de correção e não deve enviar valores ausentes ou inventados
+- **E** o Xano deve validar novamente os identificadores recebidos
+
+#### Scenario: envio bem-sucedido do formulário
+- **QUANDO** um usuário autorizado envia título, descrição, categoria e prioridade válidos
+- **ENTÃO** o cliente deve enviar esses campos ao endpoint autenticado `POST chamado` com o token da sessão
+- **E** a confirmação deve identificar o chamado criado e exibir o solicitante e o status retornados pelo Xano
+- **AND** a requisição não deve permitir que o navegador escolha o solicitante ou o status inicial
+
+#### Scenario: falha ao enviar o chamado
+- **QUANDO** o Xano rejeita a requisição ou ocorre uma falha de comunicação durante o envio
+- **ENTÃO** a tela deve informar que o chamado não foi confirmado como criado e permitir nova tentativa
+- **E** deve preservar os dados preenchidos e impedir envios repetidos enquanto a requisição estiver em andamento
 
 ### Requirement: sugestões de categoria e prioridade com apoio de IA (MUST)
 O sistema deve oferecer suporte de IA para sugerir categoria e prioridade com base no texto e no contexto do chamado, sem substituir a decisão final do responsável humano.

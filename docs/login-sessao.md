@@ -2,18 +2,18 @@
 
 ## Configuração
 
-Defina a URL base do grupo de API Authentication do Xano (veja `.env.example`):
+Configure `XANO_API_BASE_URL` no arquivo `.env` da raiz do projeto. O cliente Xano carrega esse arquivo automaticamente ao iniciar; `.env` é ignorado pelo Git. Use `.env.example` como modelo e mantenha a URL real apenas no arquivo local.
 
 ```powershell
-$env:XANO_API_BASE_URL="https://<instancia>.xano.io/api:YVgiBQ2M"
-.\.venv\Scripts\reflex.exe run
+uv run reflex run --env prod --single-port
 ```
 
-Sem a variável, o login mostra um erro de configuração.
+Uma variável `XANO_API_BASE_URL` já definida no ambiente do processo tem precedência sobre o valor do arquivo `.env`. Sem uma URL configurada, o login mostra um erro de configuração.
 
 ## Comportamento
 
 - `/login` autentica via `auth/login`; `/` é protegida e valida o token com `auth/me`.
+- Após o login, funcionários (`perfil_id` 4) seguem para `/chamados/novo`; os demais perfis seguem para `/`.
 - O token e o perfil seguro (`id`, `name`, `email`, `perfil_id`, `departamento_id`) ficam no `LocalStorage` e sobrevivem ao fechar o navegador.
 - Token rejeitado limpa a sessão e leva ao login; falha de rede mostra erro com "Tentar novamente".
 - Chamadas futuras ao Xano usam `AuthState.get_auth_headers()` (`Authorization: Bearer <token>`).

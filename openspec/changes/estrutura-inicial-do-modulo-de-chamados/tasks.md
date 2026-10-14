@@ -2,15 +2,18 @@
 
 ## 1. Fundamentos do módulo de chamados
 
-- [ ] 1.1 Definir a estrutura inicial de usuários, departamentos e perfis no Xano e validar a matriz mínima de acesso para funcionário, técnico, gestor e administrador. Verificação: confirmar que a autenticação e os metadados do usuário suportam o fluxo do MVP e que nenhum papel não autorizado pode alcançar ações de chamados.
-- [ ] 1.2 Modelar a entidade base de chamado com campos essenciais para solicitante, responsável, categoria, prioridade, status, descrição e data de criação, mantendo o escopo compatível com a documentação do MVP. Verificação: confirmar que o registro suporta o fluxo de funcionário para técnico sem introduzir complexidade fora do escopo.
-- [ ] 1.3 Modelar o histórico de interações e a relação com ativos para garantir rastreabilidade operacional. Verificação: confirmar que cada chamado pode registrar interações e, quando relevante, vincular-se a um ativo.
+- [x] 1.1 Definir a estrutura inicial de usuários, departamentos e perfis no Xano e validar a matriz mínima de acesso para funcionário, técnico, gestor e administrador. Verificação: confirmar que a autenticação e os metadados do usuário suportam o fluxo do MVP e que nenhum papel não autorizado pode alcançar ações de chamados.
+- [x] 1.2 Modelar a entidade base de chamado com campos essenciais para solicitante, responsável, categoria, prioridade, status, descrição e data de criação, mantendo o escopo compatível com a documentação do MVP. Verificação: confirmar que o registro suporta o fluxo de funcionário para técnico sem introduzir complexidade fora do escopo.
+- [x] 1.3 Modelar o histórico de interações e a relação com ativos para garantir rastreabilidade operacional. Verificação: confirmar que cada chamado pode registrar interações e, quando relevante, vincular-se a um ativo.
 
 ## 2. Fluxo principal de atendimento
 
-- [ ] 2.1 Implementar a criação de chamados por funcionários, com persistência e visualização mínima do registro para o solicitante. Verificação: concluir um fluxo de criação bem-sucedido no aplicativo e confirmar que o chamado foi salvo no Xano.
-- [ ] 2.2 Implementar a visualização e atualização de chamados por técnicos, incluindo atribuição, mudança de status e registro de interações. Verificação: atribuir um chamado a um técnico e confirmar que as mudanças de status e as observações ficam visíveis no histórico.
-- [ ] 2.3 Validar o fluxo completo de abertura, atribuição e atualização do chamado, incluindo cenário de responsabilidade e histórico. Verificação: percorrer o processo completo desde a criação pelo funcionário até a resolução técnica e confirmar o estado final no banco de dados.
+- [x] 2.1 Estender `xano_client.py` com consultas autenticadas de categorias e prioridades e criação de chamado, enviando o token Bearer da sessão. Verificação: testes do cliente confirmam os caminhos, métodos, cabeçalho e campos aceitos pelo contrato exportado, além do tratamento de falha.
+- [x] 2.2 Criar a página protegida de abertura em Reflex e reutilizar `AuthState` para exibir o nome do solicitante sem edição. Verificação: usuário sem sessão válida é redirecionado ao login e usuário autorizado vê o próprio nome em campo somente para leitura.
+- [x] 2.3 Implementar título, descrição, categoria e prioridade e seus estados de carregamento, validação e ausência de opções. Verificação: conferir obrigatoriedade e limites de 1–200 caracteres para título e 1–10000 para descrição; falhas ou listas vazias impedem o envio e permitem recuperação.
+- [x] 2.4 Enviar o formulário ao Xano e apresentar confirmação ou erro sem perder os dados preenchidos. Verificação: a requisição contém somente título, descrição, categoria e prioridade; o sucesso mostra o identificador, o solicitante e o status retornados pelo Xano, e falhas não são apresentadas como sucesso.
+- [ ] 2.5 Implementar a visualização e atualização de chamados por técnicos, incluindo atribuição, mudança de status e registro de interações. Verificação: atribuir um chamado a um técnico e confirmar que as mudanças de status e as observações ficam visíveis no histórico.
+- [ ] 2.6 Validar o fluxo completo de abertura, atribuição e atualização do chamado, incluindo cenário de responsabilidade e histórico. Verificação: percorrer o processo completo desde a criação pelo funcionário até a resolução técnica e confirmar o estado final no banco de dados.
 
 ## 3. Ativos, tarefas e indicadores
 

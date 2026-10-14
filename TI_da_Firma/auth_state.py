@@ -9,6 +9,10 @@ from . import xano_client
 PERFIS = {1: "Administrador", 2: "Gestor", 3: "Técnico", 4: "Funcionário"}
 
 
+def _rota_pos_login(perfil_id: object) -> str:
+    return "/chamados/novo" if str(perfil_id) == "4" else "/"
+
+
 class AuthState(rx.State):
     # Persistidos no LocalStorage do navegador (sobrevivem ao fechar o navegador).
     auth_token: str = rx.LocalStorage("", name="auth_token")
@@ -34,6 +38,13 @@ class AuthState(rx.State):
             return PERFIS.get(int(self.perfil.get("perfil_id", "")), "Desconhecido")
         except ValueError:
             return "Desconhecido"
+
+    @rx.var
+    def pode_criar_chamado(self) -> bool:
+        try:
+            return int(self.perfil.get("perfil_id", "")) in (2, 4)
+        except ValueError:
+            return False
 
     def _salvar_perfil(self, user: dict) -> None:
         self.perfil_json = json.dumps(user)
@@ -62,8 +73,16 @@ class AuthState(rx.State):
             resultado = xano_client.login(email, senha)
         except xano_client.XanoConfigError as exc:
             self.erro = str(exc)
-        except xano_client.XanoRejected:
-            self.erro = "E-mail ou senha inválidos."
+        except xano_client.XanoRejected as exc:
+            if exc.status_code == 403:
+                self.erro = (
+                    "O Xano recusou o login. Confira e-mail e senha; se estiverem "
+                    "corretos, valide se a conta tem perfil operacional e departamento configurados."
+                )
+            elif exc.status_code == 401:
+                self.erro = "O Xano recusou as credenciais informadas."
+            else:
+                self.erro = "O Xano rejeitou os dados do login. Confira o formato do e-mail."
         except xano_client.XanoUnavailable:
             self.erro = "Não foi possível conectar ao servidor. Tente novamente."
         else:
@@ -71,7 +90,7 @@ class AuthState(rx.State):
             self._salvar_perfil(resultado.user)
             self.autenticado = True
             self.carregando = False
-            return rx.redirect("/")
+            return rx.redirect(_rota_pos_login(resultado.user.get("perfil_id")))
         self.carregando = False
 
     @rx.event
@@ -103,9 +122,9 @@ class AuthState(rx.State):
 
     @rx.event
     def verificar_login(self):
-        """Na tela de login, quem já tem token segue para a home (que valida)."""
+        """Na tela de login, quem tem token segue à rota adequada ao perfil."""
         if self.auth_token:
-            return rx.redirect("/")
+            return rx.redirect(_rota_pos_login(self.perfil.get("perfil_id", "")))
 
     @rx.event
     def sair(self):
