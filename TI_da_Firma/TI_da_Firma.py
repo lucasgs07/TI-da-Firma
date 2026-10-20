@@ -6,6 +6,8 @@ from .auth_state import AuthState
 from .technician_portal import technician_portal
 from .office_portal import office_portal
 from .office_state import OfficeState
+from .admin_portal import admin_portal
+from .admin_state import AdminState
 
 
 def _ticket_card(ticket: rx.Var[dict[str, str]]) -> rx.Component:
@@ -298,7 +300,8 @@ def home_page() -> rx.Component:
                     AuthState.perfil["perfil_id"] == "4",
                     _employee_portal(),
                     rx.cond(AuthState.perfil["perfil_id"] == "3", technician_portal(),
-                            rx.cond(AuthState.perfil["perfil_id"] == "2", office_portal(), generic_home)),
+                            rx.cond(AuthState.perfil["perfil_id"] == "2", office_portal(),
+                                    rx.cond(AuthState.perfil["perfil_id"] == "1", admin_portal(), generic_home))),
                 ),
                 spacing="4",
                 padding_y="2rem",
@@ -320,6 +323,6 @@ def home_page() -> rx.Component:
 
 
 app = rx.App()
-app.add_page(home_page, route="/", on_load=[AuthState.verificar_sessao, OfficeState.initialize])
+app.add_page(home_page, route="/", on_load=[AuthState.verificar_sessao, OfficeState.initialize, AdminState.initialize])
 app.add_page(tasks_page, route="/tarefas", on_load=[AuthState.verificar_sessao, OfficeState.initialize])
 app.add_page(login_page, route="/login", on_load=AuthState.verificar_login)

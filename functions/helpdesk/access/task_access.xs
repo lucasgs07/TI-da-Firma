@@ -19,11 +19,11 @@ function "helpdesk/access/task_access" {
       field_name = "id"
       field_value = $input.tarefa_id
       mock = {
-        "secondary technician can read"           : {id: 10, responsavel_id: 31, responsaveis_ids: [31, 30]}
-        "legacy responsible can read"             : {id: 10, responsavel_id: 30, responsaveis_ids: []}
-        "secondary employee can read"             : {id: 10, responsavel_id: 41, responsaveis_ids: [41, 40]}
-        "unassigned employee cannot read"         : {id: 10, responsavel_id: 40, responsaveis_ids: [30, 31]}
-        "manager cannot manage outside department": {id: 10, responsavel_id: 31, responsaveis_ids: [31, 40]}
+        "secondary technician can read"           : {id: 10, solicitante_id: null, responsavel_id: 31, responsaveis_ids: [31, 30]}
+        "legacy responsible can read"             : {id: 10, solicitante_id: null, responsavel_id: 30, responsaveis_ids: []}
+        "secondary employee can read"             : {id: 10, solicitante_id: null, responsavel_id: 41, responsaveis_ids: [41, 40]}
+        "unassigned employee cannot read"         : {id: 10, solicitante_id: null, responsavel_id: 40, responsaveis_ids: [30, 31]}
+        "manager cannot manage outside department": {id: 10, solicitante_id: null, responsavel_id: 31, responsaveis_ids: [31, 40]}
       }
     } as $task
   
@@ -110,6 +110,20 @@ function "helpdesk/access/task_access" {
       value = ($can_manage || (($actor.perfil_id == 3 || $actor.perfil_id == 4) && $assigned))
     }
   
+    var $requester {
+      value = null
+    }
+  
+    conditional {
+      if ($task.solicitante_id != null) {
+        db.get user {
+          field_name = "id"
+          field_value = $task.solicitante_id
+          output = ["id", "name"]
+        } as $requester
+      }
+    }
+  
     var $public_task {
       value = {
         id               : $task.id
@@ -119,6 +133,7 @@ function "helpdesk/access/task_access" {
         prazo            : $task.prazo
         concluido_em     : $task.concluido_em
         solicitante_id   : $task.solicitante_id
+        requester_name   : $requester.name
         responsavel_id   : $task.responsavel_id
         responsaveis_ids : $ids
         responsaveis     : $people
