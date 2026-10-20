@@ -26,6 +26,10 @@ class XanoUnavailable(Exception):
     """Falha de rede, timeout ou resposta inesperada do Xano."""
 
 
+class XanoOperationError(Exception):
+    """Requisição de atendimento negada ou inválida, sem invalidar a sessão."""
+
+
 @dataclass(frozen=True)
 class LoginResult:
     auth_token: str
@@ -59,6 +63,8 @@ def _request(
     path: str,
     *,
     json: dict | None = None,
+    params: dict | None = None,
+    operational: bool = False,
     token: str | None = None,
     client: httpx.Client | None = None,
 ) -> Any:
@@ -66,19 +72,28 @@ def _request(
     headers = auth_headers(token) if token else None
     try:
         if client is not None:
-            response = client.request(method, url, json=json, headers=headers)
+            response = client.request(method, url, json=json, params=params, headers=headers)
         else:
             with httpx.Client(timeout=TIMEOUT_SEGUNDOS) as http:
-                response = http.request(method, url, json=json, headers=headers)
+                response = http.request(method, url, json=json, params=params, headers=headers)
     except httpx.HTTPError as exc:
         raise XanoUnavailable("Não foi possível contatar o servidor.") from exc
 
+    if operational and response.status_code in (400, 403, 404, 409, 422):
+        messages = {
+            400: "Dados inválidos ou status não configurado. Revise a operação.",
+            403: "Você não tem permissão para esta ação. Atualize o chamado.",
+            404: "Chamado não encontrado ou indisponível para esta operação.",
+            409: "O chamado foi alterado. Atualize antes de tentar novamente.",
+            422: "Revise os dados e a configuração do status solicitado.",
+        }
+        raise XanoOperationError(messages[response.status_code])
     if response.status_code in (400, 401, 403):
         raise XanoRejected("Credenciais ou sessão rejeitadas.")
     if response.status_code != 200:
         logger.warning(
-            "Xano %s %s respondeu %s: %s",
-            method, path, response.status_code, response.text[:200],
+            "Xano %s %s respondeu %s",
+            method, path, response.status_code,
         )
         raise XanoUnavailable("O servidor respondeu com erro inesperado.")
     try:
@@ -194,3 +209,63 @@ def list_priorities(
     """Lista prioridades disponíveis retornadas pelo Xano."""
     data = _request("GET", "prioridade", token=token, client=client)
     return _lookup_list(data, "prioridades")
+
+
+def technician_tickets(token: str, client: httpx.Client | None = None) -> list[dict]:
+    return _record_list(_request("GET", "chamado", token=token, client=client,
+                                 operational=True), "chamados")
+
+
+def technician_ticket(ticket_id: int, token: str, client: httpx.Client | None = None) -> dict:
+    _positive_ticket_id(ticket_id)
+    return _record(_request("GET", f"chamado/{ticket_id}", token=token,
+                            client=client, operational=True), "chamado")
+
+
+def _positive_ticket_id(ticket_id: int) -> None:
+    if ticket_id < 1:
+        raise ValueError("O identificador do chamado deve ser positivo.")
+
+
+def ticket_interactions(ticket_id: int, token: str, client: httpx.Client | None = None) -> list[dict]:
+    _positive_ticket_id(ticket_id)
+    data = _request("GET", "interacao_chamado", params={"chamado_id": ticket_id},
+                    token=token, client=client, operational=True)
+    rows = _record_list(data, "histórico")
+    # Falhar se o servidor ignorar o novo filtro; não expor comentários de outro chamado.
+    if any(str(row.get("chamado_id")) != str(ticket_id) for row in rows):
+        raise XanoUnavailable("O servidor não aplicou o filtro do histórico.")
+    return rows
+
+
+def claim_ticket(ticket_id: int, token: str, client: httpx.Client | None = None) -> dict:
+    _positive_ticket_id(ticket_id)
+    return _record(_request("POST", f"chamado/{ticket_id}/assumir", token=token,
+                            client=client, operational=True), "associação")
+
+
+def comment_ticket(ticket_id: int, message: str, token: str,
+                   client: httpx.Client | None = None) -> dict:
+    _positive_ticket_id(ticket_id)
+    if not message.strip():
+        raise ValueError("Escreva um comentário.")
+    return _record(_request("POST", "interacao_chamado",
+                            json={"chamado_id": ticket_id, "mensagem": message.strip()},
+                            token=token, client=client, operational=True), "comentário")
+
+
+OPERATIONAL_STATUSES = ["Em Análise", "Em atendimento", "Aguardando usuário", "Resolvido", "Fechado"]
+
+
+def update_ticket(ticket_id: int, status: str, solution: str, token: str,
+                  client: httpx.Client | None = None) -> dict:
+    _positive_ticket_id(ticket_id)
+    if status not in OPERATIONAL_STATUSES:
+        raise ValueError("Selecione um status válido.")
+    if status in ("Resolvido", "Fechado") and not solution.strip():
+        raise ValueError("Informe a solução final para resolver ou fechar o chamado.")
+    payload = {"status_nome": status}
+    if solution.strip():
+        payload["solucao_final"] = solution.strip()
+    return _record(_request("PATCH", f"chamado/{ticket_id}", json=payload,
+                            token=token, client=client, operational=True), "atualização")

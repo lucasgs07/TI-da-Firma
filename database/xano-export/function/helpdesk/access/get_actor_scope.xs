@@ -82,9 +82,7 @@ function "helpdesk/access/get_actor_scope" {
       case (3) {
         var.update $scope {
           value = $scope
-            |set:"ticket_scope":"open_queue_or_actor_assigned"
-            |set:"ticket_scope_includes_open_queue":true
-            |set:"ticket_scope_includes_actor_assigned":true
+            |set:"ticket_scope":"all"
             |set:"task_scope":"actor_assigned"
         }
       } break
@@ -179,10 +177,10 @@ function "helpdesk/access/get_actor_scope" {
         actor_id                                          : 30
         perfil_id                                         : 3
         departamento_id                                   : 7
-        ticket_scope                                      : "open_queue_or_actor_assigned"
+        ticket_scope                                      : "all"
         ticket_read_only                                  : false
-        ticket_scope_includes_open_queue                  : true
-        ticket_scope_includes_actor_assigned              : true
+        ticket_scope_includes_open_queue                  : false
+        ticket_scope_includes_actor_assigned              : false
         ticket_scope_includes_actor_requested             : false
         ticket_scope_includes_department_employee_requests: false
         task_scope                                        : "actor_assigned"

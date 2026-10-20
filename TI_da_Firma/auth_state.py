@@ -1,6 +1,7 @@
 """Estado de autenticação: login, restauração de sessão e logout local."""
 
 import json
+from datetime import datetime, timezone
 
 import reflex as rx
 
@@ -25,6 +26,31 @@ def _ticket_view(ticket: dict) -> dict[str, str]:
     return view
 
 
+def _technical_ticket_view(ticket: dict) -> dict[str, str]:
+    view = _ticket_view(ticket)
+    for field in ("requester_name", "solicitante_id", "responsavel_id", "responsible_name",
+                  "solucao_final", "atualizado_em", "resolvido_em"):
+        view[field] = str(ticket.get(field) or "")
+    technicians = ticket.get("tecnicos") or []
+    view["technician_names"] = ", ".join(
+        str(t.get("name") or f"Técnico #{t.get('id')}") for t in technicians if isinstance(t, dict)
+    ) or view["responsible_name"] or "Sem técnico associado"
+    return view
+
+
+def _interaction_view(row: dict) -> dict[str, str]:
+    view = {key: str(row.get(key) or "") for key in ("id", "mensagem", "user_id", "author_name")}
+    view["author_name"] = view["author_name"] or f"Usuário #{view['user_id']}"
+    stamp = row.get("created_at")
+    try:
+        dt = (datetime.fromtimestamp(float(stamp) / 1000, timezone.utc)
+              if isinstance(stamp, (int, float)) else datetime.fromisoformat(str(stamp).replace("Z", "+00:00")))
+        view["data"] = dt.strftime("%d/%m/%Y %H:%M %z")
+    except (ValueError, TypeError, OverflowError, OSError):
+        view["data"] = str(stamp or "Data não informada")
+    return view
+
+
 class AuthState(rx.State):
     # Persistidos no LocalStorage do navegador (sobrevivem ao fechar o navegador).
     auth_token: str = rx.LocalStorage("", name="auth_token")
@@ -45,6 +71,218 @@ class AuthState(rx.State):
     carregando_chamados: bool = False
     carregando_opcoes: bool = False
     enviando_chamado: bool = False
+    chamados_tecnicos: list[dict[str, str]] = []
+    atendimento: dict[str, str] = {}
+    historico: list[dict[str, str]] = []
+    tecnicos_atendimento: list[dict[str, str]] = []
+    tela_tecnico: str = "lista"
+    erro_tecnico: str = ""
+    erro_historico: str = ""
+    sucesso_tecnico: str = ""
+    carregando_tecnico: bool = False
+    carregando_historico: bool = False
+    enviando_atendimento: bool = False
+    comentario: str = ""
+    solucao: str = ""
+    status_destino: str = ""
+
+    @rx.event
+    def set_comentario(self, value: str):
+        if self._tecnico_autorizado() and not self.enviando_atendimento:
+            self.comentario = value
+
+    @rx.event
+    def set_solucao(self, value: str):
+        if self._tecnico_autorizado() and not self.enviando_atendimento:
+            self.solucao = value
+
+    @rx.event
+    def set_status_destino(self, value: str):
+        if self._tecnico_autorizado() and not self.enviando_atendimento:
+            self.status_destino = value
+
+    @rx.var
+    def tecnico_associado(self) -> bool:
+        actor_id = self.perfil.get("id", "")
+        return bool(actor_id) and any(t.get("id") == actor_id for t in self.tecnicos_atendimento)
+
+    @rx.var
+    def pode_associar(self) -> bool:
+        return self._tecnico_autorizado() and self.atendimento.get("status_name") == "Aberto" and not self.tecnico_associado
+
+    @rx.var
+    def pode_atualizar_atendimento(self) -> bool:
+        return (self._tecnico_autorizado() and self.tecnico_associado
+                and self.atendimento.get("status_name") in
+                ("Aberto", "Em Análise", "Em atendimento", "Aguardando usuário"))
+
+    def _tecnico_autorizado(self) -> bool:
+        return self.autenticado and self._perfil_id() == 3
+
+    def _limpar_atendimento(self) -> None:
+        self.atendimento = {}
+        self.historico = []
+        self.tecnicos_atendimento = []
+        self.comentario = ""
+        self.solucao = ""
+        self.status_destino = ""
+        self.erro_tecnico = ""
+        self.erro_historico = ""
+        self.sucesso_tecnico = ""
+
+    def _limpar_tecnico(self) -> None:
+        self._limpar_atendimento()
+        self.chamados_tecnicos = []
+        self.tela_tecnico = "lista"
+        self.carregando_tecnico = False
+        self.carregando_historico = False
+        self.enviando_atendimento = False
+
+    def _erro_atendimento(self, exc: Exception) -> None:
+        if isinstance(exc, xano_client.XanoRejected):
+            self._invalidar_sessao_rejeitada()
+        elif isinstance(exc, (xano_client.XanoOperationError, xano_client.XanoConfigError, ValueError)):
+            self.erro_tecnico = str(exc)
+        else:
+            self.erro_tecnico = "Não foi possível concluir a consulta ou operação. Atualize para conferir o estado atual antes de tentar novamente."
+
+    def _carregar_lista_tecnica(self) -> None:
+        try:
+            rows = xano_client.technician_tickets(self.auth_token)
+            self.chamados_tecnicos = [_technical_ticket_view(row) for row in rows]
+        except (xano_client.XanoConfigError, xano_client.XanoRejected,
+                xano_client.XanoUnavailable, xano_client.XanoOperationError) as exc:
+            self.chamados_tecnicos = []
+            self._erro_atendimento(exc)
+
+    def _carregar_atendimento(self, ticket_id: int) -> None:
+        ticket = xano_client.technician_ticket(ticket_id, self.auth_token)
+        self.atendimento = _technical_ticket_view(ticket)
+        assignments = ticket.get("tecnicos")
+        self.tecnicos_atendimento = [
+            {"id": str(t.get("id") or ""), "name": str(t.get("name") or "")}
+            for t in assignments or [] if isinstance(t, dict)
+        ]
+        if "tecnicos" not in ticket and ticket.get("responsavel_id"):
+            self.tecnicos_atendimento = [{"id": str(ticket["responsavel_id"]),
+                                          "name": str(ticket.get("responsible_name") or "") }]
+
+    def _carregar_historico(self) -> None:
+        self.historico = []
+        self.erro_historico = ""
+        if not self.atendimento.get("id"):
+            return
+        try:
+            rows = xano_client.ticket_interactions(int(self.atendimento["id"]), self.auth_token)
+            self.historico = [_interaction_view(row) for row in rows]
+        except xano_client.XanoRejected:
+            self._invalidar_sessao_rejeitada()
+        except (xano_client.XanoConfigError, xano_client.XanoUnavailable, xano_client.XanoOperationError):
+            self.erro_historico = "Não foi possível carregar o histórico. Tente novamente."
+
+    @rx.event
+    def atualizar_lista_tecnica(self):
+        if not self._tecnico_autorizado() or self.enviando_atendimento:
+            return
+        self.erro_tecnico = ""
+        self.carregando_tecnico = True
+        yield
+        self._carregar_lista_tecnica()
+        self.carregando_tecnico = False
+        if not self.autenticado:
+            yield rx.redirect("/login")
+
+    @rx.event
+    def abrir_atendimento(self, chamado_id: str):
+        if not self._tecnico_autorizado() or self.enviando_atendimento:
+            return
+        self._limpar_atendimento()
+        self.tela_tecnico = "detalhe"
+        self.carregando_tecnico = True
+        yield
+        try:
+            ticket_id = int(chamado_id)
+            if ticket_id < 1:
+                raise ValueError("Identificador de chamado inválido.")
+            self._carregar_atendimento(ticket_id)
+            self.solucao = self.atendimento.get("solucao_final", "")
+            current = self.atendimento.get("status_name", "")
+            self.status_destino = current if current in xano_client.OPERATIONAL_STATUSES else "Em atendimento"
+        except (ValueError, xano_client.XanoConfigError, xano_client.XanoRejected,
+                xano_client.XanoUnavailable, xano_client.XanoOperationError) as exc:
+            self._erro_atendimento(exc)
+        self.carregando_tecnico = False
+        if self.atendimento:
+            self.carregando_historico = True
+            yield
+            self._carregar_historico()
+            self.carregando_historico = False
+        if not self.autenticado:
+            yield rx.redirect("/login")
+
+    @rx.event
+    def atualizar_historico(self):
+        if not self._tecnico_autorizado() or self.enviando_atendimento:
+            return
+        self.carregando_historico = True
+        yield
+        self._carregar_historico()
+        self.carregando_historico = False
+        if not self.autenticado:
+            yield rx.redirect("/login")
+
+    @rx.event
+    def voltar_lista_tecnica(self):
+        if not self._tecnico_autorizado() or self.enviando_atendimento:
+            return
+        self._limpar_atendimento()
+        self.tela_tecnico = "lista"
+
+    @rx.event
+    def executar_atendimento(self, acao: str):
+        if not self._tecnico_autorizado() or self.enviando_atendimento or not self.atendimento.get("id"):
+            return
+        self.erro_tecnico = ""
+        self.sucesso_tecnico = ""
+        if ((acao == "associar" and not self.pode_associar)
+                or (acao == "comentar" and not self.tecnico_associado)
+                or (acao == "status" and not self.pode_atualizar_atendimento)):
+            self.erro_tecnico = "Ação indisponível para este chamado. Atualize para conferir suas permissões."
+            return
+        if acao not in ("associar", "comentar", "status"):
+            return
+        ticket_id = int(self.atendimento["id"])
+        self.enviando_atendimento = True
+        yield
+        try:
+            if acao == "associar":
+                xano_client.claim_ticket(ticket_id, self.auth_token)
+            elif acao == "comentar":
+                xano_client.comment_ticket(ticket_id, self.comentario, self.auth_token)
+                self.comentario = ""
+            else:
+                xano_client.update_ticket(ticket_id, self.status_destino, self.solucao, self.auth_token)
+            self.sucesso_tecnico = "Operação salva com sucesso."
+            # A resposta de escrita é reduzida; recarregar o contrato completo.
+            try:
+                self._carregar_atendimento(ticket_id)
+                self._carregar_lista_tecnica()
+                if self.autenticado:
+                    self._carregar_historico()
+            except (xano_client.XanoConfigError, xano_client.XanoRejected,
+                    xano_client.XanoUnavailable, xano_client.XanoOperationError) as exc:
+                self.atendimento = {}
+                self.tecnicos_atendimento = []
+                self._erro_atendimento(exc)
+            if self.erro_tecnico:
+                self.erro_tecnico = "Operação salva, mas os dados não puderam ser atualizados. Volte à lista e atualize."
+        except (ValueError, xano_client.XanoConfigError, xano_client.XanoRejected,
+                xano_client.XanoUnavailable, xano_client.XanoOperationError) as exc:
+            self._erro_atendimento(exc)
+        finally:
+            self.enviando_atendimento = False
+        if not self.autenticado:
+            yield rx.redirect("/login")
 
     @rx.var
     def perfil(self) -> dict[str, str]:
@@ -142,6 +380,7 @@ class AuthState(rx.State):
         self.perfil_json = ""
         self.autenticado = False
         self._limpar_dados_chamados()
+        self._limpar_tecnico()
 
     def _invalidar_sessao_rejeitada(self) -> None:
         self._limpar_sessao()
@@ -185,6 +424,8 @@ class AuthState(rx.State):
         self.erro = ""
         self.erro_rede = False
         self.autenticado = False
+        self._limpar_dados_chamados()
+        self._limpar_tecnico()
         if not self.auth_token:
             return rx.redirect("/login")
         self.carregando = True
@@ -209,6 +450,13 @@ class AuthState(rx.State):
                 yield
                 self._carregar_chamados()
                 self.carregando_chamados = False
+            elif self._perfil_id() == 3:
+                self.carregando_tecnico = True
+                yield
+                self._carregar_lista_tecnica()
+                self.carregando_tecnico = False
+                if not self.autenticado:
+                    yield rx.redirect("/login")
         self.carregando = False
 
     @rx.event

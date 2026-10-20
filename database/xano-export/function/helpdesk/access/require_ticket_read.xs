@@ -16,11 +16,11 @@ function "helpdesk/access/require_ticket_read" {
         "should deny non-TI manager non-employee requester"                      : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
         "should allow technician assigned ticket"                                : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow technician open unassigned queue ticket"                   : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
-        "should deny technician unassigned non-open ticket"                      : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
-        "should deny technician ticket assigned to another user"                 : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
+        "should allow technician unassigned non-open ticket"                     : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
+        "should allow technician ticket assigned to another user"                : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow technician legacy assignment without relation rows"        : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow technician in multi-assignee relation despite legacy owner": {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
-        "should deny legacy owner when relation excludes technician"             : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
+        "should allow technician read without assignment"                        : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow employee own requester ticket"                             : {id: 40, name: "Employee", perfil_id: 4, departamento_id: 7}
         "should deny employee other requester ticket"                            : {id: 40, name: "Employee", perfil_id: 4, departamento_id: 7}
       }
@@ -39,11 +39,11 @@ function "helpdesk/access/require_ticket_read" {
         "should deny non-TI manager non-employee requester"                      : {id: 506, status_chamado_id: null, solicitante_id: 906, responsavel_id: 901}
         "should allow technician assigned ticket"                                : {id: 507, status_chamado_id: null, solicitante_id: 900, responsavel_id: 30}
         "should allow technician open unassigned queue ticket"                   : {id: 508, status_chamado_id: 1, solicitante_id: 900, responsavel_id: null}
-        "should deny technician unassigned non-open ticket"                      : {id: 509, status_chamado_id: 2, solicitante_id: 900, responsavel_id: null}
-        "should deny technician ticket assigned to another user"                 : {id: 510, status_chamado_id: 1, solicitante_id: 900, responsavel_id: 31}
+        "should allow technician unassigned non-open ticket"                     : {id: 509, status_chamado_id: 2, solicitante_id: 900, responsavel_id: null}
+        "should allow technician ticket assigned to another user"                : {id: 510, status_chamado_id: 1, solicitante_id: 900, responsavel_id: 31}
         "should allow technician legacy assignment without relation rows"        : {id: 513, status_chamado_id: null, solicitante_id: 900, responsavel_id: 30}
         "should allow technician in multi-assignee relation despite legacy owner": {id: 514, status_chamado_id: null, solicitante_id: 900, responsavel_id: 31}
-        "should deny legacy owner when relation excludes technician"             : {id: 515, status_chamado_id: null, solicitante_id: 900, responsavel_id: 30}
+        "should allow technician read without assignment"                        : {id: 515, status_chamado_id: null, solicitante_id: 900, responsavel_id: 30}
         "should allow employee own requester ticket"                             : {id: 511, status_chamado_id: null, solicitante_id: 40, responsavel_id: 901}
         "should deny employee other requester ticket"                            : {id: 512, status_chamado_id: null, solicitante_id: 41, responsavel_id: 901}
       }
@@ -135,102 +135,13 @@ function "helpdesk/access/require_ticket_read" {
       } break
     
       case (3) {
-        // Load ticket assignment relations; these are authoritative when present.
-        db.query chamado_tecnico {
-          where = $db.chamado_tecnico.chamado_id == $ticket.id
-          return = {type: "list"}
-          mock = {
-            "should allow technician assigned ticket"                                : [{id: 1, chamado_id: 507, tecnico_id: 30}]
-            "should allow technician open unassigned queue ticket"                   : []
-            "should deny technician unassigned non-open ticket"                      : []
-            "should deny technician ticket assigned to another user"                 : [{id: 2, chamado_id: 510, tecnico_id: 31}]
-            "should allow technician legacy assignment without relation rows"        : []
-            "should allow technician in multi-assignee relation despite legacy owner": ```
-              [
-                {id: 3, chamado_id: 514, tecnico_id: 31},
-                {id: 4, chamado_id: 514, tecnico_id: 30}
-              ]
-              ```
-            "should deny legacy owner when relation excludes technician"             : [{id: 5, chamado_id: 515, tecnico_id: 31}]
-          }
-        } as $ticket_technician_assignments
-      
-        // Determine whether relation assignments exist before considering the legacy owner field.
-        var $assignment_count {
-          value = $ticket_technician_assignments|count
+        // Global read does not authorize operational writes.
+        var.update $can_read {
+          value = true
         }
       
-        // Check whether this technician belongs to the ticket's assignment relation.
-        db.query chamado_tecnico {
-          where = $db.chamado_tecnico.chamado_id == $ticket.id && $db.chamado_tecnico.tecnico_id == $actor.id
-          return = {type: "single"}
-          mock = {
-            "should allow technician assigned ticket"                                : {id: 1, chamado_id: 507, tecnico_id: 30}
-            "should allow technician open unassigned queue ticket"                   : null
-            "should deny technician unassigned non-open ticket"                      : null
-            "should deny technician ticket assigned to another user"                 : null
-            "should allow technician legacy assignment without relation rows"        : null
-            "should allow technician in multi-assignee relation despite legacy owner": {id: 4, chamado_id: 514, tecnico_id: 30}
-            "should deny legacy owner when relation excludes technician"             : null
-          }
-        } as $actor_ticket_assignment
-      
-        var $actor_is_assigned {
-          value = ($actor_ticket_assignment != null)
-        }
-      
-        conditional {
-          if ($assignment_count > 0) {
-            conditional {
-              if ($actor_is_assigned) {
-                var.update $can_read {
-                  value = true
-                }
-              
-                var.update $scope_name {
-                  value = "actor_assigned"
-                }
-              }
-            }
-          }
-        
-          elseif ($ticket.responsavel_id == $actor.id) {
-            var.update $can_read {
-              value = true
-            }
-          
-            var.update $scope_name {
-              value = "actor_assigned"
-            }
-          }
-        
-          else {
-            conditional {
-              if ($assignment_count == 0 && $ticket.responsavel_id == null && $ticket.status_chamado_id != null) {
-                db.get status_chamado {
-                  field_name = "id"
-                  field_value = $ticket.status_chamado_id
-                  output = ["id", "nome"]
-                  mock = {
-                    "should allow technician open unassigned queue ticket": {id: 1, nome: "Aberto"}
-                    "should deny technician unassigned non-open ticket"   : {id: 2, nome: "Em andamento"}
-                  }
-                } as $ticket_status
-              
-                conditional {
-                  if ($ticket_status != null && $ticket_status.nome == "Aberto") {
-                    var.update $can_read {
-                      value = true
-                    }
-                  
-                    var.update $scope_name {
-                      value = "open_queue"
-                    }
-                  }
-                }
-              }
-            }
-          }
+        var.update $scope_name {
+          value = "all"
         }
       } break
     
@@ -345,7 +256,7 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 507
         actor_id : 30
-        scope    : "actor_assigned"
+        scope    : "all"
         read_only: false
       }
     }
@@ -358,25 +269,35 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 508
         actor_id : 30
-        scope    : "open_queue"
+        scope    : "all"
         read_only: false
       }
     }
   }
 
-  test "should deny technician unassigned non-open ticket" {
+  test "should allow technician unassigned non-open ticket" {
     input = {ticket_id: 509}
   
-    expect.to_throw {
-      exception = ""
+    expect.to_equal ($response) {
+      value = {
+        ticket_id: 509
+        actor_id : 30
+        scope    : "all"
+        read_only: false
+      }
     }
   }
 
-  test "should deny technician ticket assigned to another user" {
+  test "should allow technician ticket assigned to another user" {
     input = {ticket_id: 510}
   
-    expect.to_throw {
-      exception = ""
+    expect.to_equal ($response) {
+      value = {
+        ticket_id: 510
+        actor_id : 30
+        scope    : "all"
+        read_only: false
+      }
     }
   }
 
@@ -387,7 +308,7 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 513
         actor_id : 30
-        scope    : "actor_assigned"
+        scope    : "all"
         read_only: false
       }
     }
@@ -400,17 +321,22 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 514
         actor_id : 30
-        scope    : "actor_assigned"
+        scope    : "all"
         read_only: false
       }
     }
   }
 
-  test "should deny legacy owner when relation excludes technician" {
+  test "should allow technician read without assignment" {
     input = {ticket_id: 515}
   
-    expect.to_throw {
-      exception = ""
+    expect.to_equal ($response) {
+      value = {
+        ticket_id: 515
+        actor_id : 30
+        scope    : "all"
+        read_only: false
+      }
     }
   }
 

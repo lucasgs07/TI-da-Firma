@@ -3,6 +3,7 @@
 import reflex as rx
 
 from .auth_state import AuthState
+from .technician_portal import technician_portal
 
 
 def _ticket_card(ticket: rx.Var[dict[str, str]]) -> rx.Component:
@@ -258,7 +259,7 @@ def home_page() -> rx.Component:
                 rx.cond(
                     AuthState.perfil["perfil_id"] == "4",
                     _employee_portal(),
-                    generic_home,
+                    rx.cond(AuthState.perfil["perfil_id"] == "3", technician_portal(), generic_home),
                 ),
                 spacing="4",
                 padding_y="2rem",

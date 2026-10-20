@@ -46,63 +46,25 @@ query "interacao_chamado/{interacao_chamado_id}" verb=GET {
       error = "Interaction was not found or is not available."
     }
   
-    conditional {
-      if ($actor.perfil_id == 3) {
-        db.query chamado_tecnico {
-          where = $db.chamado_tecnico.chamado_id == $interaction.chamado_id
-          return = {type: "list"}
-        } as $interaction_ticket_assignments
-      
-        var $interaction_assignment_count {
-          value = $interaction_ticket_assignments|count
-        }
-      
-        var $actor_is_assigned {
-          value = false
-        }
-      
-        db.query chamado_tecnico {
-          where = $db.chamado_tecnico.chamado_id == $interaction.chamado_id && $db.chamado_tecnico.tecnico_id == $actor.id
-          return = {type: "single"}
-        } as $actor_ticket_assignment
-      
-        var.update $actor_is_assigned {
-          value = ($actor_ticket_assignment != null)
-        }
-      
-        var $can_read_interaction {
-          value = false
-        }
-      
-        conditional {
-          if ($interaction.ticket_status_name == "Aberto" || $actor_is_assigned || ($interaction_assignment_count == 0 && $interaction.ticket_responsavel_id == $actor.id)) {
-            var.update $can_read_interaction {
-              value = true
-            }
-          }
-        }
-      
-        precondition ($can_read_interaction) {
-          error_type = "notfound"
-          error = "Interaction was not found or is not available."
-        }
-      }
-    
-      else {
-        function.run "helpdesk/access/require_ticket_read" {
-          input = {ticket_id: $interaction.chamado_id}
-        } as $ticket_read
-      }
-    }
+    function.run "helpdesk/access/require_ticket_read" {
+      input = {ticket_id: $interaction.chamado_id}
+    } as $ticket_read
+  
+    db.get user {
+      field_name = "id"
+      field_value = $interaction.user_id
+      output = ["id", "name"]
+    } as $author
   
     // Return only explicitly approved interaction fields; never include private user data.
     var $public_interaction {
       value = {
-        id        : $interaction.id
-        created_at: $interaction.created_at
-        mensagem  : $interaction.mensagem
-        chamado_id: $interaction.chamado_id
-        user_id   : $interaction.user_id
+        id         : $interaction.id
+        created_at : $interaction.created_at
+        mensagem   : $interaction.mensagem
+        chamado_id : $interaction.chamado_id
+        user_id    : $interaction.user_id
+        author_name: $author.name
       }
     }
   }
