@@ -20,6 +20,8 @@ Sem a variável, o login mostra um erro de configuração.
 
 ## Logout e validade residual
 
+Gestores também recebem o [portal gerencial](portal-gerencial.md), conforme seu departamento. Funcionários recebem Minhas tarefas para consultar e concluir tarefas próprias com solução obrigatória, sem autorização para resolver chamados. Os estados dessas áreas são limpos na restauração da sessão e no logout.
+
 O perfil Técnico (3) recebe a área de atendimento após a validação da sessão. Consulte [Portal de atendimento técnico](portal-tecnico.md) para contratos e permissões. Os dados e rascunhos técnicos são limpos no logout e na restauração da sessão; o perfil persistido no navegador é substituído pelo perfil retornado por `auth/me`.
 
 O logout é **local**: remove token, perfil e estado do navegador. O Xano não revoga tokens, então um token copiado antes do logout continua válido até expirar (**até 24 horas**).

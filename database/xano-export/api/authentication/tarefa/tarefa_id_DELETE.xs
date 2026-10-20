@@ -27,19 +27,13 @@ query "tarefa/{tarefa_id}" verb=DELETE {
       error = "Task not found."
     }
   
-    conditional {
-      if ($actor.perfil_id == 2) {
-        db.query user {
-          where = $db.user.id == $tarefa.responsavel_id && $db.user.perfil_id == 3 && $db.user.departamento_id == $actor.departamento_id
-          return = {type: "single"}
-          output = ["id"]
-        } as $scoped_owner
-      
-        precondition ($scoped_owner != null) {
-          error_type = "notfound"
-          error = "Task not found."
-        }
-      }
+    function.run "helpdesk/access/task_access" {
+      input = {tarefa_id: $input.tarefa_id}
+    } as $access
+  
+    precondition ($access.can_manage) {
+      error_type = "notfound"
+      error = "Task not found or unavailable."
     }
   
     db.del tarefa {

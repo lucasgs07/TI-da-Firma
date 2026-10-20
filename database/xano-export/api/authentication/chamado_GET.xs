@@ -40,7 +40,7 @@ query chamado verb=GET {
         }
       }
     
-      where = ($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.chamado.solicitante_id == $actor.id || ($db.requester.perfil_id == 4 && $db.requester.departamento_id == $actor.departamento_id))) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.chamado.solicitante_id == $actor.id)
+      where = ($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.requester.departamento_id == $actor.departamento_id)) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.chamado.solicitante_id == $actor.id)
       sort = {chamado.created_at: "desc"}
       eval = {
         requester_name  : $db.requester.name

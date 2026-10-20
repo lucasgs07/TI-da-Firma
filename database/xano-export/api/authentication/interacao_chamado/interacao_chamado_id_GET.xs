@@ -32,7 +32,7 @@ query "interacao_chamado/{interacao_chamado_id}" verb=GET {
         }
       }
     
-      where = $db.interacao_chamado.id == $input.interacao_chamado_id && (($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.ticket.solicitante_id == $actor.id || ($db.requester.perfil_id == 4 && $db.requester.departamento_id == $actor.departamento_id))) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.ticket.solicitante_id == $actor.id))
+      where = $db.interacao_chamado.id == $input.interacao_chamado_id && (($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.requester.departamento_id == $actor.departamento_id)) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.ticket.solicitante_id == $actor.id))
       eval = {
         ticket_status_name   : $db.status_chamado.nome
         ticket_responsavel_id: $db.ticket.responsavel_id

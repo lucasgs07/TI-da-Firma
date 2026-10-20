@@ -11,6 +11,9 @@ query "tarefa/{tarefa_id}" verb=PATCH {
     // Replacement technician; managers may reassign only within their department.
     int responsavel_id?
   
+    // Complete non-empty owner set. Do not combine with the legacy owner field.
+    int[] responsaveis_ids?
+  
     // Non-empty applied solution required for technician completion.
     text solucao_aplicada? filters=trim
   
@@ -84,9 +87,9 @@ query "tarefa/{tarefa_id}" verb=PATCH {
       }
     }
   
-    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3) {
+    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3 || $actor.perfil_id == 4) {
       error_type = "accessdenied"
-      error = "Only administrators, managers and technicians may update tasks."
+      error = "Only administrators, managers and assigned workers may update tasks."
     }
   
     conditional {
@@ -110,6 +113,7 @@ query "tarefa/{tarefa_id}" verb=PATCH {
         "concluido_em"
         "solicitante_id"
         "responsavel_id"
+        "responsaveis_ids"
         "chamado_id"
         "prioridade_id"
         "status_chamado_id"
@@ -121,45 +125,130 @@ query "tarefa/{tarefa_id}" verb=PATCH {
       error = "Task not found."
     }
   
+    function.run "helpdesk/access/task_access" {
+      input = {tarefa_id: $input.tarefa_id}
+    } as $access
+  
     conditional {
       if ($actor.perfil_id == 1 || $actor.perfil_id == 2) {
-        precondition ($requested_responsavel_id != null && $requested_solution == null && $requested_status == null) {
+        precondition (($requested_responsavel_id != null || ($provided_input|has:"responsaveis_ids")) && $requested_solution == null && $requested_status == null) {
           error_type = "inputerror"
           error = "Managers may only reassign a task by providing a technician ID."
         }
       
-        db.get user {
-          field_name = "id"
-          field_value = $tarefa.responsavel_id
-          output = ["id", "perfil_id", "departamento_id"]
-        } as $current_responsavel
-      
-        precondition ($current_responsavel != null && ($actor.perfil_id == 1 || ($current_responsavel.perfil_id == 3 && $current_responsavel.departamento_id == $actor.departamento_id))) {
+        precondition ($access.can_manage) {
           error_type = "accessdenied"
-          error = "Managers may reassign only tasks currently assigned to technicians in their department."
+          error = "Every current responsible user must be within the manager scope."
         }
       
-        function.run "helpdesk/access/authorize_target_user" {
-          input = {
-            target_user_id    : $requested_responsavel_id
-            expected_perfil_id: 3
+        precondition ($tarefa.concluido_em == null) {
+          error_type = "accessdenied"
+          error = "Completed tasks cannot be reassigned."
+        }
+      
+        var $task_target_profile {
+          value = 3
+        }
+      
+        conditional {
+          if ($actor.perfil_id == 2 && $actor.departamento_id != 1) {
+            var.update $task_target_profile {
+              value = 4
+            }
           }
-        } as $new_responsavel
+        }
+      
+        var $owner_ids {
+          value = []
+        }
+      
+        conditional {
+          if ($provided_input|has:"responsaveis_ids") {
+            precondition (($provided_input|has:"responsavel_id") == false) {
+              error_type = "inputerror"
+              error = "Supply either responsaveis_ids or legacy responsavel_id."
+            }
+          
+            precondition ($input.responsaveis_ids != null && ($input.responsaveis_ids|count) > 0) {
+              error_type = "inputerror"
+              error = "Select at least one responsible user."
+            }
+          
+            var.update $owner_ids {
+              value = $input.responsaveis_ids
+            }
+          }
+        
+          else {
+            precondition ($input.responsavel_id != null && $input.responsavel_id > 0) {
+              error_type = "inputerror"
+              error = "Select a responsible user."
+            }
+          
+            array.push $owner_ids {
+              value = $input.responsavel_id
+            }
+          }
+        }
+      
+        var $validated_ids {
+          value = []
+        }
+      
+        var $first_owner {
+          value = null
+        }
+      
+        foreach ($owner_ids) {
+          each as $owner_id {
+            precondition ($owner_id > 0) {
+              error_type = "inputerror"
+              error = "Responsible user identifiers must be positive."
+            }
+          
+            function.run "helpdesk/access/authorize_target_user" {
+              input = {
+                target_user_id    : $owner_id
+                expected_perfil_id: $task_target_profile
+              }
+            } as $valid_owner
+          
+            array.has ($validated_ids) if ($this == $valid_owner.id) as $already_added
+            conditional {
+              if ($already_added == false) {
+                array.push $validated_ids {
+                  value = $valid_owner.id
+                }
+              }
+            }
+          
+            conditional {
+              if ($first_owner == null) {
+                var.update $first_owner {
+                  value = $valid_owner.id
+                }
+              }
+            }
+          }
+        }
       
         db.patch tarefa {
           field_name = "id"
           field_value = $input.tarefa_id
-          data = {responsavel_id: $new_responsavel.id}
+          data = {
+            responsavel_id  : $first_owner
+            responsaveis_ids: $validated_ids
+          }
         } as $patched_tarefa
       }
     
       else {
-        precondition ($tarefa.responsavel_id == $actor.id) {
+        precondition ($access.assigned) {
           error_type = "accessdenied"
-          error = "Only the assigned technician may complete this task."
+          error = "Only the assigned worker may complete this task."
         }
       
-        precondition ($requested_responsavel_id == null) {
+        precondition (($provided_input|has:"responsavel_id") == false && ($provided_input|has:"responsaveis_ids") == false) {
           error_type = "accessdenied"
           error = "Technicians may not reassign tasks."
         }
@@ -264,6 +353,7 @@ query "tarefa/{tarefa_id}" verb=PATCH {
         "concluido_em"
         "solicitante_id"
         "responsavel_id"
+        "responsaveis_ids"
         "chamado_id"
         "prioridade_id"
         "status_chamado_id"
@@ -292,6 +382,10 @@ query "tarefa/{tarefa_id}" verb=PATCH {
       }
     }
   
+    function.run "helpdesk/access/task_access" {
+      input = {tarefa_id: $input.tarefa_id}
+    } as $saved_access
+  
     // Return only explicitly whitelisted task fields and the related status name.
     var $public_task {
       value = {
@@ -303,6 +397,8 @@ query "tarefa/{tarefa_id}" verb=PATCH {
         concluido_em     : $final_tarefa.concluido_em
         solicitante_id   : $final_tarefa.solicitante_id
         responsavel_id   : $final_tarefa.responsavel_id
+        responsaveis_ids : $saved_access.task.responsaveis_ids
+        responsaveis     : $saved_access.task.responsaveis
         chamado_id       : $final_tarefa.chamado_id
         prioridade_id    : $final_tarefa.prioridade_id
         status_chamado_id: $final_tarefa.status_chamado_id

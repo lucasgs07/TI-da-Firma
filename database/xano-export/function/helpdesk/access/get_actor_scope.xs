@@ -56,6 +56,7 @@ function "helpdesk/access/get_actor_scope" {
                 |set:"ticket_read_only":true
                 |set:"task_scope":"own_department"
                 |set:"can_create_tickets":true
+                |set:"can_create_users_globally":true
                 |set:"can_create_users_in_department":true
                 |set:"can_create_tasks_in_department":true
                 |set:"can_create_technicians_or_employees_in_department":true
@@ -65,15 +66,15 @@ function "helpdesk/access/get_actor_scope" {
           else {
             var.update $scope {
               value = $scope
-                |set:"ticket_scope":"own_and_department_employee_requests_read_only"
+                |set:"ticket_scope":"department_member_requests_read_only"
                 |set:"ticket_read_only":true
-                |set:"ticket_scope_includes_actor_requested":true
+                |set:"ticket_scope_includes_actor_requested":false
                 |set:"ticket_scope_includes_department_employee_requests":true
                 |set:"task_scope":"own_department"
                 |set:"can_create_tickets":true
                 |set:"can_create_users_in_department":true
                 |set:"can_create_tasks_in_department":true
-                |set:"can_create_technicians_or_employees_in_department":true
+                |set:"can_create_technicians_or_employees_in_department":false
             }
           }
         }
@@ -93,7 +94,7 @@ function "helpdesk/access/get_actor_scope" {
             |set:"ticket_scope":"actor_requested"
             |set:"ticket_read_only":true
             |set:"ticket_scope_includes_actor_requested":true
-            |set:"task_scope":"none"
+            |set:"task_scope":"actor_assigned"
             |set:"can_create_tickets":true
         }
       } break
@@ -139,7 +140,7 @@ function "helpdesk/access/get_actor_scope" {
         ticket_scope_includes_department_employee_requests: false
         task_scope                                        : "own_department"
         can_create_tickets                                : true
-        can_create_users_globally                         : false
+        can_create_users_globally                         : true
         can_create_users_in_department                    : true
         can_create_tasks_in_department                    : true
         can_create_tasks_globally                         : false
@@ -154,11 +155,11 @@ function "helpdesk/access/get_actor_scope" {
         actor_id                                          : 21
         perfil_id                                         : 2
         departamento_id                                   : 7
-        ticket_scope                                      : "own_and_department_employee_requests_read_only"
+        ticket_scope                                      : "department_member_requests_read_only"
         ticket_read_only                                  : true
         ticket_scope_includes_open_queue                  : false
         ticket_scope_includes_actor_assigned              : false
-        ticket_scope_includes_actor_requested             : true
+        ticket_scope_includes_actor_requested             : false
         ticket_scope_includes_department_employee_requests: true
         task_scope                                        : "own_department"
         can_create_tickets                                : true
@@ -166,7 +167,7 @@ function "helpdesk/access/get_actor_scope" {
         can_create_users_in_department                    : true
         can_create_tasks_in_department                    : true
         can_create_tasks_globally                         : false
-        can_create_technicians_or_employees_in_department : true
+        can_create_technicians_or_employees_in_department : false
       }
     }
   }
@@ -206,7 +207,7 @@ function "helpdesk/access/get_actor_scope" {
         ticket_scope_includes_actor_assigned              : false
         ticket_scope_includes_actor_requested             : true
         ticket_scope_includes_department_employee_requests: false
-        task_scope                                        : "none"
+        task_scope                                        : "actor_assigned"
         can_create_tickets                                : true
         can_create_users_globally                         : false
         can_create_users_in_department                    : false

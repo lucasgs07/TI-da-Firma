@@ -46,22 +46,37 @@ query "users/create" verb=POST {
     
       elseif ($actor.perfil_id == 2) {
         function.run "helpdesk/access/require_manager_department" as $manager_scope
-        precondition ($input.perfil_id == 3 || $input.perfil_id == 4) {
-          error_type = "accessdenied"
-          error = "Managers may create only technicians and employees."
-        }
-      
         conditional {
-          if ($provided_input.departamento_id > 0 && $provided_input.departamento_id != $manager_scope.departamento_id) {
-            precondition (false) {
+          if ($actor.departamento_id == 1) {
+            precondition ($input.perfil_id == 2 || $input.perfil_id == 3 || $input.perfil_id == 4) {
               error_type = "accessdenied"
-              error = "Managers may create users only in their own department."
+              error = "TI managers cannot create administrators."
+            }
+          
+            conditional {
+              if ($provided_input.departamento_id > 0) {
+                var.update $target_department_id {
+                  value = $provided_input.departamento_id
+                }
+              }
             }
           }
-        }
-      
-        var.update $target_department_id {
-          value = $manager_scope.departamento_id
+        
+          else {
+            precondition ($input.perfil_id == 4) {
+              error_type = "accessdenied"
+              error = "Department managers may create only employees."
+            }
+          
+            precondition ($provided_input.departamento_id == null || $provided_input.departamento_id < 1 || $provided_input.departamento_id == $actor.departamento_id) {
+              error_type = "accessdenied"
+              error = "The employee must belong to the manager department."
+            }
+          
+            var.update $target_department_id {
+              value = $actor.departamento_id
+            }
+          }
         }
       }
     
@@ -69,6 +84,19 @@ query "users/create" verb=POST {
         precondition (false) {
           error_type = "accessdenied"
           error = "Only administrators and managers may create users."
+        }
+      }
+    }
+  
+    conditional {
+      if ($input.perfil_id == 3) {
+        precondition ($provided_input.departamento_id == null || $provided_input.departamento_id < 1 || $provided_input.departamento_id == 1) {
+          error_type = "inputerror"
+          error = "New technicians must belong to TI."
+        }
+      
+        var.update $target_department_id {
+          value = 1
         }
       }
     }

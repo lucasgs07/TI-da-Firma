@@ -9,52 +9,34 @@ query tarefa verb=GET {
 
   stack {
     function.run "helpdesk/access/get_actor_context" as $actor
-    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3) {
+    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3 || $actor.perfil_id == 4) {
       error_type = "accessdenied"
-      error = "Employees are not allowed to access tasks."
+      error = "Only authenticated operational profiles may access scoped tasks."
     }
   
-    conditional {
-      if ($actor.perfil_id == 1) {
-        db.query tarefa {
-          return = {type: "list"}
-        } as $tarefas
-      }
-    
-      elseif ($actor.perfil_id == 2) {
-        db.query user {
-          where = $db.user.perfil_id == 3 && $db.user.departamento_id == $actor.departamento_id
-          return = {type: "list"}
-          output = ["id"]
-        } as $department_technicians
+    db.query tarefa {
+      sort = {tarefa.created_at: "desc"}
+      return = {type: "list"}
+      output = ["id"]
+    } as $rows
+  
+    var $tarefas {
+      value = []
+    }
+  
+    foreach ($rows) {
+      each as $row {
+        function.run "helpdesk/access/task_access" {
+          input = {tarefa_id: $row.id}
+        } as $access
       
-        var $tarefas {
-          value = []
-        }
-      
-        foreach ($department_technicians) {
-          each as $technician {
-            db.query tarefa {
-              where = $db.tarefa.responsavel_id == $technician.id
-              return = {type: "list"}
-            } as $technician_tarefas
-          
-            foreach ($technician_tarefas) {
-              each as $technician_tarefa {
-                array.push $tarefas {
-                  value = $technician_tarefa
-                }
-              }
+        conditional {
+          if ($access.can_read) {
+            array.push $tarefas {
+              value = $access.task
             }
           }
         }
-      }
-    
-      else {
-        db.query tarefa {
-          where = $db.tarefa.responsavel_id == $actor.id
-          return = {type: "list"}
-        } as $tarefas
       }
     }
   }

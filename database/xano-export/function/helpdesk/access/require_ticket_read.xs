@@ -13,7 +13,7 @@ function "helpdesk/access/require_ticket_read" {
         "should allow non-TI manager own requester ticket"                       : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
         "should allow non-TI manager same-department employee requester"         : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
         "should deny non-TI manager cross-department employee requester"         : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
-        "should deny non-TI manager non-employee requester"                      : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
+        "should allow non-TI manager non-employee requester"                     : {id: 21, name: "Manager", perfil_id: 2, departamento_id: 7}
         "should allow technician assigned ticket"                                : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow technician open unassigned queue ticket"                   : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
         "should allow technician unassigned non-open ticket"                     : {id: 30, name: "Technician", perfil_id: 3, departamento_id: 7}
@@ -36,7 +36,7 @@ function "helpdesk/access/require_ticket_read" {
         "should allow non-TI manager own requester ticket"                       : {id: 503, status_chamado_id: null, solicitante_id: 21, responsavel_id: 901}
         "should allow non-TI manager same-department employee requester"         : {id: 504, status_chamado_id: null, solicitante_id: 904, responsavel_id: 901}
         "should deny non-TI manager cross-department employee requester"         : {id: 505, status_chamado_id: null, solicitante_id: 905, responsavel_id: 901}
-        "should deny non-TI manager non-employee requester"                      : {id: 506, status_chamado_id: null, solicitante_id: 906, responsavel_id: 901}
+        "should allow non-TI manager non-employee requester"                     : {id: 506, status_chamado_id: null, solicitante_id: 906, responsavel_id: 901}
         "should allow technician assigned ticket"                                : {id: 507, status_chamado_id: null, solicitante_id: 900, responsavel_id: 30}
         "should allow technician open unassigned queue ticket"                   : {id: 508, status_chamado_id: 1, solicitante_id: 900, responsavel_id: null}
         "should allow technician unassigned non-open ticket"                     : {id: 509, status_chamado_id: 2, solicitante_id: 900, responsavel_id: null}
@@ -93,16 +93,6 @@ function "helpdesk/access/require_ticket_read" {
             }
           }
         
-          elseif ($ticket.solicitante_id == $actor.id) {
-            var.update $can_read {
-              value = true
-            }
-          
-            var.update $scope_name {
-              value = "own_ticket_read_only"
-            }
-          }
-        
           else {
             conditional {
               if ($ticket.solicitante_id != null) {
@@ -111,20 +101,21 @@ function "helpdesk/access/require_ticket_read" {
                   field_value = $ticket.solicitante_id
                   output = ["id", "perfil_id", "departamento_id"]
                   mock = {
+                    "should allow non-TI manager own requester ticket"              : {id: 21, perfil_id: 2, departamento_id: 7}
                     "should allow non-TI manager same-department employee requester": {id: 904, perfil_id: 4, departamento_id: 7}
                     "should deny non-TI manager cross-department employee requester": {id: 905, perfil_id: 4, departamento_id: 8}
-                    "should deny non-TI manager non-employee requester"             : {id: 906, perfil_id: 3, departamento_id: 7}
+                    "should allow non-TI manager non-employee requester"            : {id: 906, perfil_id: 3, departamento_id: 7}
                   }
                 } as $requester
               
                 conditional {
-                  if ($requester != null && $requester.perfil_id == 4 && $requester.departamento_id == $actor.departamento_id) {
+                  if ($requester != null && $requester.departamento_id == $actor.departamento_id) {
                     var.update $can_read {
                       value = true
                     }
                   
                     var.update $scope_name {
-                      value = "department_employee_ticket_read_only"
+                      value = "department_member_ticket_read_only"
                     }
                   }
                 }
@@ -214,7 +205,7 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 503
         actor_id : 21
-        scope    : "own_ticket_read_only"
+        scope    : "department_member_ticket_read_only"
         read_only: true
       }
     }
@@ -227,7 +218,7 @@ function "helpdesk/access/require_ticket_read" {
       value = {
         ticket_id: 504
         actor_id : 21
-        scope    : "department_employee_ticket_read_only"
+        scope    : "department_member_ticket_read_only"
         read_only: true
       }
     }
@@ -241,11 +232,16 @@ function "helpdesk/access/require_ticket_read" {
     }
   }
 
-  test "should deny non-TI manager non-employee requester" {
+  test "should allow non-TI manager non-employee requester" {
     input = {ticket_id: 506}
   
-    expect.to_throw {
-      exception = ""
+    expect.to_equal ($response) {
+      value = {
+        ticket_id: 506
+        actor_id : 21
+        scope    : "department_member_ticket_read_only"
+        read_only: true
+      }
     }
   }
 

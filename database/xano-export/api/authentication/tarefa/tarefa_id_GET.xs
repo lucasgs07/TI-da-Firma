@@ -11,41 +11,22 @@ query "tarefa/{tarefa_id}" verb=GET {
 
   stack {
     function.run "helpdesk/access/get_actor_context" as $actor
-    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3) {
+    precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3 || $actor.perfil_id == 4) {
       error_type = "accessdenied"
-      error = "Employees are not allowed to access tasks."
+      error = "Only authenticated operational profiles may access scoped tasks."
     }
   
-    db.get tarefa {
-      field_name = "id"
-      field_value = $input.tarefa_id
-    } as $tarefa
+    function.run "helpdesk/access/task_access" {
+      input = {tarefa_id: $input.tarefa_id}
+    } as $access
   
-    precondition ($tarefa != null) {
+    precondition ($access.can_read) {
       error_type = "notfound"
-      error = "Task not found."
+      error = "Task not found or unavailable."
     }
   
-    conditional {
-      if ($actor.perfil_id == 2) {
-        db.get user {
-          field_name = "id"
-          field_value = $tarefa.responsavel_id
-          output = ["id", "perfil_id", "departamento_id"]
-        } as $responsavel
-      
-        precondition ($responsavel != null && $responsavel.perfil_id == 3 && $responsavel.departamento_id == $actor.departamento_id) {
-          error_type = "accessdenied"
-          error = "Managers may access only tasks assigned to technicians in their department."
-        }
-      }
-    
-      elseif ($actor.perfil_id == 3) {
-        precondition ($tarefa.responsavel_id == $actor.id) {
-          error_type = "accessdenied"
-          error = "Technicians may access only tasks assigned to themselves."
-        }
-      }
+    var $tarefa {
+      value = $access.task
     }
   }
 

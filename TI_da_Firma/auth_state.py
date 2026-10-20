@@ -376,11 +376,18 @@ class AuthState(rx.State):
         self.perfil_json = json.dumps(user)
 
     def _limpar_sessao(self) -> None:
+        self._limpar_office()
         self.auth_token = ""
         self.perfil_json = ""
         self.autenticado = False
         self._limpar_dados_chamados()
         self._limpar_tecnico()
+
+    def _limpar_office(self) -> None:
+        from .office_state import OfficeState
+        office = self._get_root_state().substates.get(OfficeState.get_name())
+        if office is not None:
+            office.reset()
 
     def _invalidar_sessao_rejeitada(self) -> None:
         self._limpar_sessao()
@@ -424,6 +431,7 @@ class AuthState(rx.State):
         self.erro = ""
         self.erro_rede = False
         self.autenticado = False
+        self._limpar_office()
         self._limpar_dados_chamados()
         self._limpar_tecnico()
         if not self.auth_token:

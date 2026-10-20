@@ -269,3 +269,83 @@ def update_ticket(ticket_id: int, status: str, solution: str, token: str,
         payload["solucao_final"] = solution.strip()
     return _record(_request("PATCH", f"chamado/{ticket_id}", json=payload,
                             token=token, client=client, operational=True), "atualização")
+
+
+def office_request(method: str, path: str, token: str, *, payload: dict | None = None,
+                   params: dict | None = None, client: httpx.Client | None = None):
+    """Transporte autenticado; as funções abaixo limitam campos de escrita."""
+    return _request(method, path, json=payload, params=params, token=token,
+                    client=client, operational=True)
+
+
+def departments(token: str) -> list[dict[str, str]]:
+    return _lookup_list(office_request("GET", "departamento", token), "departamentos")
+
+
+def profiles(token: str) -> list[dict]:
+    return _record_list(office_request("GET", "perfil", token), "perfis")
+
+
+def directory(token: str, profile_id: int, department_id: int) -> list[dict]:
+    rows, page, seen = [], 1, set()
+    while True:
+        if page in seen:
+            raise XanoUnavailable("Paginação inválida do diretório.")
+        seen.add(page)
+        data = _record(office_request("GET", "users/directory", token, params={
+            "perfil_id": profile_id, "departamento_id": department_id,
+            "page": page, "per_page": 100}), "diretório")
+        batch = _record_list(data.get("items"), "diretório")
+        if any(str(r.get("perfil_id")) != str(profile_id) or
+               str(r.get("departamento_id")) != str(department_id) for r in batch):
+            raise XanoUnavailable("O diretório não respeitou o escopo solicitado.")
+        rows.extend(batch)
+        next_page = data.get("nextPage")
+        if not next_page:
+            return rows
+        try:
+            page = int(next_page)
+        except (ValueError, TypeError) as exc:
+            raise XanoUnavailable("Paginação inválida do diretório.") from exc
+
+
+def provision_user(token: str, name: str, email: str, password: str,
+                   profile_id: int, department_id: int) -> dict:
+    return _record(office_request("POST", "users/create", token, payload={
+        "name": name, "email": email, "password": password,
+        "perfil_id": profile_id, "departamento_id": department_id}), "usuário")
+
+
+def create_task(token: str, title: str, description: str, owner: int | list[int], priority: int,
+                due: str = "", ticket_id: int | None = None) -> dict:
+    payload = {"titulo": title, "descricao": description, "prioridade_id": priority}
+    if isinstance(owner, list):
+        if not owner or any(type(item) is not int or item < 1 for item in owner):
+            raise ValueError("Selecione pelo menos um responsável válido.")
+        payload["responsaveis_ids"] = list(dict.fromkeys(owner))
+    else:
+        if type(owner) is not int or owner < 1:
+            raise ValueError("Selecione um responsável válido.")
+        payload["responsavel_id"] = owner
+    if due:
+        payload["prazo"] = due
+    if ticket_id is not None:
+        payload["chamado_id"] = ticket_id
+    return _record(office_request("POST", "tarefa", token, payload=payload), "tarefa")
+
+
+def list_tasks(token: str) -> list[dict]:
+    return _record_list(office_request("GET", "tarefa", token), "tarefas")
+
+
+def get_task(token: str, task_id: int) -> dict:
+    _positive_ticket_id(task_id)
+    return _record(office_request("GET", f"tarefa/{task_id}", token), "tarefa")
+
+
+def complete_task(token: str, task_id: int, solution: str) -> dict:
+    _positive_ticket_id(task_id)
+    if not solution.strip():
+        raise ValueError("Informe a solução da tarefa.")
+    return _record(office_request("PATCH", f"tarefa/{task_id}", token, payload={
+        "status_nome": "Concluída", "solucao_aplicada": solution.strip()}), "conclusão")
