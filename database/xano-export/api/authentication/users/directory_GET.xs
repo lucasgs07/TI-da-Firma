@@ -56,7 +56,7 @@ query "users/directory" verb=GET {
     }
   
     conditional {
-      if ($dept_filter != null && $actor.perfil_id == 1) {
+      if ($dept_filter != null && ($actor.perfil_id == 1 || ($actor.perfil_id == 2 && $actor.departamento_id == 1))) {
         db.get departamento {
           field_name = "id"
           field_value = $dept_filter
@@ -91,7 +91,7 @@ query "users/directory" verb=GET {
     }
   
     conditional {
-      if ($actor.perfil_id == 2) {
+      if ($actor.perfil_id == 2 && $actor.departamento_id != 1) {
         function.run "helpdesk/access/require_manager_department" as $manager_scope
         precondition ($dept_filter == null || $dept_filter == $manager_scope.departamento_id) {
           error_type = "accessdenied"
@@ -104,8 +104,21 @@ query "users/directory" verb=GET {
       }
     }
   
+    conditional {
+      if ($actor.perfil_id == 2 && $actor.departamento_id != 1) {
+        precondition ($perfil_filter == null || $perfil_filter == 4) {
+          error_type = "accessdenied"
+          error = "Department managers may select only employees."
+        }
+      
+        var.update $perfil_filter {
+          value = 4
+        }
+      }
+    }
+  
     db.query user {
-      where = $db.user.departamento_id ==? $scope_department && $db.user.perfil_id ==? $perfil_filter
+      where = ($db.user.departamento_id ==? $scope_department) && ($db.user.perfil_id ==? $perfil_filter) && ($actor.perfil_id == 1 || $db.user.perfil_id != 1)
       sort = {user.name: "asc"}
       return = {
         type  : "list"

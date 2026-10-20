@@ -30,7 +30,7 @@ query interacao_chamado verb=GET {
         }
       }
     
-      where = ($input.chamado_id == null || $db.interacao_chamado.chamado_id == $input.chamado_id) && (($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.ticket.solicitante_id == $actor.id || ($db.requester.perfil_id == 4 && $db.requester.departamento_id == $actor.departamento_id))) || ($actor.perfil_id == 4 && $db.ticket.solicitante_id == $actor.id) || ($actor.perfil_id == 3))
+      where = ($input.chamado_id == null || $db.interacao_chamado.chamado_id == $input.chamado_id) && (($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.requester.departamento_id == $actor.departamento_id)) || ($actor.perfil_id == 4 && $db.ticket.solicitante_id == $actor.id) || ($actor.perfil_id == 3))
       sort = {
         interacao_chamado.created_at: "asc"
         interacao_chamado.id        : "asc"

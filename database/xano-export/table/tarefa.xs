@@ -23,6 +23,11 @@ table tarefa {
       table = "user"
     }
   
+    // Authoritative membership; empty on legacy tasks, which use responsavel_id.
+    int[] responsaveis_ids? {
+      table = "user"
+    }
+  
     int chamado_id? {
       table = "chamado"
     }

@@ -15,7 +15,10 @@ query tarefa verb=POST {
     date prazo?
   
     // User ID of the technician assigned to the task.
-    int responsavel_id filters=min:1
+    int responsavel_id?
+  
+    // Complete non-empty owner set. Do not combine with the legacy owner field.
+    int[] responsaveis_ids?
   
     // Optional related ticket ID.
     int chamado_id?
@@ -91,12 +94,91 @@ query tarefa verb=POST {
       error = "The selected task priority does not exist."
     }
   
-    function.run "helpdesk/access/authorize_target_user" {
-      input = {
-        target_user_id    : $input.responsavel_id
-        expected_perfil_id: 3
+    var $task_target_profile {
+      value = 3
+    }
+  
+    conditional {
+      if ($actor.perfil_id == 2 && $actor.departamento_id != 1) {
+        var.update $task_target_profile {
+          value = 4
+        }
       }
-    } as $responsavel
+    }
+  
+    var $owner_ids {
+      value = []
+    }
+  
+    conditional {
+      if ($provided_input|has:"responsaveis_ids") {
+        precondition (($provided_input|has:"responsavel_id") == false) {
+          error_type = "inputerror"
+          error = "Supply either responsaveis_ids or legacy responsavel_id."
+        }
+      
+        precondition ($input.responsaveis_ids != null && ($input.responsaveis_ids|count) > 0) {
+          error_type = "inputerror"
+          error = "Select at least one responsible user."
+        }
+      
+        var.update $owner_ids {
+          value = $input.responsaveis_ids
+        }
+      }
+    
+      else {
+        precondition ($input.responsavel_id != null && $input.responsavel_id > 0) {
+          error_type = "inputerror"
+          error = "Select a responsible user."
+        }
+      
+        array.push $owner_ids {
+          value = $input.responsavel_id
+        }
+      }
+    }
+  
+    var $validated_ids {
+      value = []
+    }
+  
+    var $first_owner {
+      value = null
+    }
+  
+    foreach ($owner_ids) {
+      each as $owner_id {
+        precondition ($owner_id > 0) {
+          error_type = "inputerror"
+          error = "Responsible user identifiers must be positive."
+        }
+      
+        function.run "helpdesk/access/authorize_target_user" {
+          input = {
+            target_user_id    : $owner_id
+            expected_perfil_id: $task_target_profile
+          }
+        } as $valid_owner
+      
+        array.has ($validated_ids) if ($this == $valid_owner.id) as $already_added
+        conditional {
+          if ($already_added == false) {
+            array.push $validated_ids {
+              value = $valid_owner.id
+            }
+          }
+        }
+      
+        conditional {
+          if ($first_owner == null) {
+            var.update $first_owner {
+              value = $valid_owner.id
+            }
+          }
+        }
+      }
+    }
   
     conditional {
       if ($related_ticket_id != null) {
@@ -139,7 +221,8 @@ query tarefa verb=POST {
         descricao        : $input.descricao
         prazo            : $due_date
         solicitante_id   : $actor.id
-        responsavel_id   : $responsavel.id
+        responsavel_id   : $first_owner
+        responsaveis_ids : $validated_ids
         chamado_id       : $related_ticket_id
         prioridade_id    : $prioridade.id
         status_chamado_id: $status_aberto.id

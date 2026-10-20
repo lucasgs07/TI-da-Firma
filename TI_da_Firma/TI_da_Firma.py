@@ -4,6 +4,8 @@ import reflex as rx
 
 from .auth_state import AuthState
 from .technician_portal import technician_portal
+from .office_portal import office_portal
+from .office_state import OfficeState
 
 
 def _ticket_card(ticket: rx.Var[dict[str, str]]) -> rx.Component:
@@ -233,6 +235,38 @@ def login_page() -> rx.Component:
     )
 
 
+def _worker_navigation() -> rx.Component:
+    return rx.flex(
+        rx.link(rx.button("Chamados", variant="soft"), href="/"),
+        rx.link(rx.button("Minhas tarefas", variant="soft"), href="/tarefas"),
+        gap="3", wrap="wrap", width="100%",
+    )
+
+
+def tasks_page() -> rx.Component:
+    return rx.container(
+        rx.cond(
+            AuthState.autenticado,
+            rx.vstack(
+                rx.hstack(rx.heading("TI da Firma", size="6"), rx.spacer(),
+                          rx.button("Sair", on_click=AuthState.sair, variant="soft"), width="100%"),
+                rx.cond(
+                    (AuthState.perfil["perfil_id"] == "3") | (AuthState.perfil["perfil_id"] == "4"),
+                    rx.vstack(_worker_navigation(), office_portal(employee=True), width="100%", spacing="5"),
+                    rx.callout("Esta tela é exclusiva para técnicos e funcionários.", color_scheme="red"),
+                ),
+                width="100%", spacing="5", padding_y="2rem",
+            ),
+            rx.center(
+                rx.cond(AuthState.erro_rede,
+                        rx.vstack(rx.callout(AuthState.erro, color_scheme="red"),
+                                  rx.link("Entrar novamente", href="/login")), rx.spinner()),
+                min_height="80vh",
+            ),
+        ),
+    )
+
+
 def home_page() -> rx.Component:
     generic_home = rx.vstack(
         rx.text("Olá, ", AuthState.perfil["name"], size="5"),
@@ -257,9 +291,14 @@ def home_page() -> rx.Component:
                     align="center",
                 ),
                 rx.cond(
+                    (AuthState.perfil["perfil_id"] == "3") | (AuthState.perfil["perfil_id"] == "4"),
+                    _worker_navigation(),
+                ),
+                rx.cond(
                     AuthState.perfil["perfil_id"] == "4",
                     _employee_portal(),
-                    rx.cond(AuthState.perfil["perfil_id"] == "3", technician_portal(), generic_home),
+                    rx.cond(AuthState.perfil["perfil_id"] == "3", technician_portal(),
+                            rx.cond(AuthState.perfil["perfil_id"] == "2", office_portal(), generic_home)),
                 ),
                 spacing="4",
                 padding_y="2rem",
@@ -281,5 +320,6 @@ def home_page() -> rx.Component:
 
 
 app = rx.App()
-app.add_page(home_page, route="/", on_load=AuthState.verificar_sessao)
+app.add_page(home_page, route="/", on_load=[AuthState.verificar_sessao, OfficeState.initialize])
+app.add_page(tasks_page, route="/tarefas", on_load=[AuthState.verificar_sessao, OfficeState.initialize])
 app.add_page(login_page, route="/login", on_load=AuthState.verificar_login)
