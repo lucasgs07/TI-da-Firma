@@ -12,25 +12,6 @@ query "chamado/{chamado_id}" verb=GET {
   stack {
     function.run "helpdesk/access/get_actor_context" as $actor
   
-    // Resolve the technician queue status by its configured name, never by a presumed ID.
-    var $open_status {
-      value = {id: 0}
-    }
-  
-    conditional {
-      if ($actor.perfil_id == 3) {
-        db.get status_chamado {
-          field_name = "nome"
-          field_value = "Aberto"
-          output = ["id"]
-        } as $open_status
-      
-        precondition ($open_status != null) {
-          error = "The configured open ticket status could not be found."
-        }
-      }
-    }
-  
     // Combine the requested ID and visibility scope in the same database query to conceal out-of-scope records.
     db.query chamado {
       join = {
@@ -83,42 +64,8 @@ query "chamado/{chamado_id}" verb=GET {
       return = {type: "list"}
     } as $ticket_assignments
   
-    var $can_technician_read {
-      value = false
-    }
-  
-    var $actor_is_assigned {
-      value = false
-    }
-  
-    db.query chamado_tecnico {
-      where = $db.chamado_tecnico.chamado_id == $ticket.id && $db.chamado_tecnico.tecnico_id == $actor.id
-      return = {type: "single"}
-    } as $actor_ticket_assignment
-  
-    var.update $actor_is_assigned {
-      value = ($actor_ticket_assignment != null)
-    }
-  
     var $assignment_count {
       value = $ticket_assignments|count
-    }
-  
-    conditional {
-      if ($actor.perfil_id == 3) {
-        conditional {
-          if ($ticket.status_name == "Aberto" || $actor_is_assigned || ($assignment_count == 0 && $ticket.responsavel_id == $actor.id)) {
-            var.update $can_technician_read {
-              value = true
-            }
-          }
-        }
-      
-        precondition ($can_technician_read) {
-          error_type = "notfound"
-          error = "Ticket was not found or is not available."
-        }
-      }
     }
   
     var $assigned_technicians {

@@ -10,7 +10,7 @@ query chamado verb=GET {
   stack {
     function.run "helpdesk/access/get_actor_context" as $actor
   
-    // Apply requester, manager, administrator, and employee scope in the query; technician visibility is filtered against assignment relations below.
+    // Apply requester, manager, administrator, and employee scope in the query; technicians have global read access.
     db.query chamado {
       join = {
         requester    : {
@@ -64,33 +64,26 @@ query chamado verb=GET {
           return = {type: "list"}
         } as $ticket_assignments
       
-        var $is_actor_assigned {
-          value = false
-        }
-      
-        db.query chamado_tecnico {
-          where = $db.chamado_tecnico.chamado_id == $ticket.id && $db.chamado_tecnico.tecnico_id == $actor.id
-          return = {type: "single"}
-        } as $actor_ticket_assignment
-      
-        var.update $is_actor_assigned {
-          value = ($actor_ticket_assignment != null)
-        }
-      
         var $assignment_count {
           value = $ticket_assignments|count
         }
       
-        var $can_include_ticket {
-          value = ($actor.perfil_id != 3)
+        var $assigned_technicians {
+          value = []
         }
       
-        conditional {
-          if ($actor.perfil_id == 3) {
+        foreach ($ticket_assignments) {
+          each as $assignment {
+            db.get user {
+              field_name = "id"
+              field_value = $assignment.tecnico_id
+              output = ["id", "name"]
+            } as $assigned_user
+          
             conditional {
-              if ($ticket.status_name == "Aberto" || $is_actor_assigned || ($assignment_count == 0 && $ticket.responsavel_id == $actor.id)) {
-                var.update $can_include_ticket {
-                  value = true
+              if ($assigned_user != null) {
+                array.push $assigned_technicians {
+                  value = {id: $assigned_user.id, name: $assigned_user.name}
                 }
               }
             }
@@ -98,71 +91,45 @@ query chamado verb=GET {
         }
       
         conditional {
-          if ($can_include_ticket) {
-            var $assigned_technicians {
-              value = []
-            }
-          
-            foreach ($ticket_assignments) {
-              each as $assignment {
-                db.get user {
-                  field_name = "id"
-                  field_value = $assignment.tecnico_id
-                  output = ["id", "name"]
-                } as $assigned_user
-              
-                conditional {
-                  if ($assigned_user != null) {
-                    array.push $assigned_technicians {
-                      value = {id: $assigned_user.id, name: $assigned_user.name}
-                    }
-                  }
-                }
-              }
-            }
+          if ($assignment_count == 0 && $ticket.responsavel_id != null) {
+            db.get user {
+              field_name = "id"
+              field_value = $ticket.responsavel_id
+              output = ["id", "name"]
+            } as $legacy_responsible
           
             conditional {
-              if ($assignment_count == 0 && $ticket.responsavel_id != null) {
-                db.get user {
-                  field_name = "id"
-                  field_value = $ticket.responsavel_id
-                  output = ["id", "name"]
-                } as $legacy_responsible
-              
-                conditional {
-                  if ($legacy_responsible != null) {
-                    array.push $assigned_technicians {
-                      value = {
-                        id  : $legacy_responsible.id
-                        name: $legacy_responsible.name
-                      }
-                    }
+              if ($legacy_responsible != null) {
+                array.push $assigned_technicians {
+                  value = {
+                    id  : $legacy_responsible.id
+                    name: $legacy_responsible.name
                   }
                 }
               }
             }
-          
-            array.push $public_tickets {
-              value = {
-                id                  : $ticket.id
-                titulo              : $ticket.titulo
-                descricao           : $ticket.descricao
-                solucao_final       : $ticket.solucao_final
-                status_chamado_id   : $ticket.status_chamado_id
-                status_name         : $ticket.status_name
-                categoria_chamado_id: $ticket.categoria_chamado_id
-                category_name       : $ticket.category_name
-                prioridade_id       : $ticket.prioridade_id
-                priority_name       : $ticket.priority_name
-                solicitante_id      : $ticket.solicitante_id
-                requester_name      : $ticket.requester_name
-                responsavel_id      : $ticket.responsavel_id
-                responsible_name    : $ticket.responsible_name
-                tecnicos            : $assigned_technicians
-                atualizado_em       : $ticket.atualizado_em
-                resolvido_em        : $ticket.resolvido_em
-              }
-            }
+          }
+        }
+      
+        array.push $public_tickets {
+          value = {
+            id                  : $ticket.id
+            titulo              : $ticket.titulo
+            descricao           : $ticket.descricao
+            solucao_final       : $ticket.solucao_final
+            status_chamado_id   : $ticket.status_chamado_id
+            status_name         : $ticket.status_name
+            categoria_chamado_id: $ticket.categoria_chamado_id
+            category_name       : $ticket.category_name
+            prioridade_id       : $ticket.prioridade_id
+            priority_name       : $ticket.priority_name
+            solicitante_id      : $ticket.solicitante_id
+            requester_name      : $ticket.requester_name
+            responsavel_id      : $ticket.responsavel_id
+            responsible_name    : $ticket.responsible_name
+            tecnicos            : $assigned_technicians
+            atualizado_em       : $ticket.atualizado_em
+            resolvido_em        : $ticket.resolvido_em
           }
         }
       }
