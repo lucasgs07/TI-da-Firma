@@ -18,7 +18,7 @@ def task_member_ids(row: dict) -> list[str]:
 
 def public_task(row: dict) -> dict[str, str]:
     keys = ("id", "titulo", "descricao", "solucao_aplicada", "prazo", "concluido_em",
-            "responsavel_id", "solicitante_id", "chamado_id", "prioridade_id", "status_nome")
+            "responsavel_id", "solicitante_id", "requester_name", "chamado_id", "prioridade_id", "status_nome")
     result = {k: str(row.get(k) or "") for k in keys}
     result["member_ids"] = ",".join(task_member_ids(row))
     result["member_names"] = ", ".join(

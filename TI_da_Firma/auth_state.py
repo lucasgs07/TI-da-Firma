@@ -385,6 +385,10 @@ class AuthState(rx.State):
 
     def _limpar_office(self) -> None:
         from .office_state import OfficeState
+        from .admin_state import AdminState
+        admin = self._get_root_state().substates.get(AdminState.get_name())
+        if admin is not None:
+            admin.reset()
         office = self._get_root_state().substates.get(OfficeState.get_name())
         if office is not None:
             office.reset()

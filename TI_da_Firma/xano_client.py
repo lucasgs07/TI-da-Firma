@@ -349,3 +349,61 @@ def complete_task(token: str, task_id: int, solution: str) -> dict:
         raise ValueError("Informe a solução da tarefa.")
     return _record(office_request("PATCH", f"tarefa/{task_id}", token, payload={
         "status_nome": "Concluída", "solucao_aplicada": solution.strip()}), "conclusão")
+
+
+def admin_metrics(token: str) -> dict[str, int]:
+    data = _record(office_request("GET", "helpdesk/metrics/tickets", token), "indicadores")
+    keys = ("abertos", "em_andamento", "finalizados", "nao_classificados", "total")
+    if any(type(data.get(key)) is not int or data[key] < 0 for key in keys):
+        raise XanoUnavailable("Indicadores inválidos.")
+    if sum(data[key] for key in keys[:-1]) != data["total"]:
+        raise XanoUnavailable("Indicadores inconsistentes.")
+    return {key: data[key] for key in keys}
+
+
+def admin_history(token: str, ticket_id: int | None = None, page: int = 1,
+                  through_id: int | None = None) -> dict:
+    if type(page) is not int or page < 1:
+        raise ValueError("Página inválida.")
+    params = {"page": page, "per_page": 100}
+    if ticket_id is not None:
+        if type(ticket_id) is not int or ticket_id < 1:
+            raise ValueError("Chamado inválido.")
+        params["chamado_id"] = ticket_id
+    if through_id is not None:
+        if type(through_id) is not int or through_id < 0:
+            raise ValueError("Limite inválido.")
+        params["through_id"] = through_id
+    data = _record(office_request("GET", "helpdesk/tickets/history", token, params=params), "histórico")
+    rows = _record_list(data.get("items"), "histórico")
+    boundary = data.get("through_id")
+    if type(boundary) is not int or boundary < 0 or (through_id is not None and boundary != through_id):
+        raise XanoUnavailable("Limite inconsistente do histórico.")
+    for row in rows:
+        if (type(row.get("id")) is not int or not 0 < row["id"] <= boundary or
+                (ticket_id is not None and str(row.get("chamado_id")) != str(ticket_id))):
+            raise XanoUnavailable("Escopo inválido do histórico.")
+    next_page = data.get("nextPage")
+    if next_page is not None and (type(next_page) is not int or next_page <= page):
+        raise XanoUnavailable("Paginação inválida do histórico.")
+    return data
+
+
+def admin_history_all(token: str, ticket_id: int | None = None) -> list[dict]:
+    rows, seen, page, boundary = [], set(), 1, None
+    while True:
+        data = admin_history(token, ticket_id, page, boundary)
+        boundary = data["through_id"]
+        for row in data["items"]:
+            if row["id"] not in seen:
+                seen.add(row["id"])
+                rows.append(row)
+        next_page = data.get("nextPage")
+        if next_page is None:
+            expected = data.get("itemsTotal")
+            if type(expected) is not int or expected != len(rows):
+                raise XanoUnavailable("Histórico incompleto. Atualize e tente novamente.")
+            return rows
+        if type(next_page) is not int or next_page <= page:
+            raise XanoUnavailable("Paginação inválida do histórico.")
+        page = next_page
