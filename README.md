@@ -33,7 +33,7 @@ Isso não significa que todas as verificações estejam concluídas: os registro
 
 ### Escopo previsto para o MVP
 
-O planejamento geral também prevê gestão de ativos e departamentos, indicadores operacionais e a integração de pelo menos uma funcionalidade de inteligência artificial. Esses itens fazem parte do escopo planejado e não devem ser interpretados, apenas por constarem no plano, como entregas concluídas. A IA é prevista como apoio aos usuários, sem substituir decisões humanas.
+O planejamento geral também prevê gestão de ativos e departamentos e indicadores operacionais. Esses itens fazem parte do escopo planejado e não devem ser interpretados, apenas por constarem no plano, como entregas concluídas. A IA é prevista como apoio aos usuários, sem substituir decisões humanas.
 
 ## Executar localmente
 
