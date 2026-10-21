@@ -7,10 +7,11 @@ query perfil verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.query perfil {
       return = {type: "list"}
     } as $perfil_rows
-  
+
     array.map ($perfil_rows) {
       by = {
         id       : $this.id

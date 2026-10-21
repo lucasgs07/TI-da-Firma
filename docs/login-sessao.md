@@ -29,3 +29,9 @@ O logout é **local**: remove token, perfil e estado do navegador. O Xano não r
 ## Risco conhecido
 
 O `LocalStorage` é acessível por scripts da página (risco de XSS). Evite incluir scripts de terceiros no app.
+
+## Contas inativas — alteração local pendente de publicação
+
+O login e o helper central de contexto foram preparados para rejeitar status Inativo. As rotas operacionais e consultas auxiliares selecionadas usam esse helper; a rejeição por inativação deve retornar 401 para limpar a sessão local também nas consultas operacionais. Perfil/departamento são lidos do registro atual no backend, não de permissões antigas do token. Status legado nulo/vazio continua compatível. Isso não promete revogação criptográfica do token.
+
+Recuperação de senha foi retirada desta mudança. Os endpoints legados de recuperação não foram modificados nem validados nesta entrega; não há nova tela “Esqueci minha senha”. O cadastro continua com senha manual definida por admin ou gestor autorizado. As verificações novas de status ainda dependem de publicação e testes no Xano.

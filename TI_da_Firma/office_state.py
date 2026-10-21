@@ -66,6 +66,11 @@ class OfficeState(rx.State):
     form_revision: int = 0
 
     @rx.var
+    def task_summary(self) -> dict[str, int]:
+        completed = sum(bool(row.get("concluido_em")) for row in self.tasks)
+        return {"pending": len(self.tasks) - completed, "completed": completed}
+
+    @rx.var
     def department_labels(self) -> list[str]:
         return [r["label"] for r in self.department_options]
 
@@ -130,6 +135,8 @@ class OfficeState(rx.State):
         self.ti_manager = self.manager and auth.perfil.get("departamento_id") == "1"
         token = auth.auth_token
         if self.section == "chamados" and self.manager:
+            from .ticket_filters import reset_visible_filters
+            reset_visible_filters(self._get_root_state())
             self.tickets = [_technical_ticket_view(r) for r in api.technician_tickets(token)]
         elif self.section in ("novo_chamado", "nova_tarefa", "usuarios") and self.manager:
             if self.section == "usuarios":

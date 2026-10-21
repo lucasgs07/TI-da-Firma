@@ -7,12 +7,14 @@ query "logs/user/my_events" verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
+
     // Retrieve event logs for the authenticated user
     db.query event_log {
       where = $db.event_log.user_id == $auth.id
       return = {type: "list"}
     } as $user_events
-  
+
     // Project the response to safe fields; historical metadata may contain secrets.
     array.map ($user_events) {
       by = {

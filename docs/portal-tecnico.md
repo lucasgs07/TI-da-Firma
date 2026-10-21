@@ -84,3 +84,9 @@ Não foram detalhados os cenários, dispositivos, perfis ou requisições utiliz
 - Executar a matriz real de operações existentes (assumir/comentar/PATCH), incluindo concorrência entre autoassociação e conclusão. O endpoint atual verifica `Aberto` antes de criar o vínculo; não foi comprovada atomicidade entre essa leitura e a gravação. A tarefa 1.3 permanece pendente, e não se afirma que esse risco foi resolvido.
 - Verificar visualmente a aplicação em desktop e móvel e executar o fluxo com autenticação real, incluindo regressão do funcionário.
 - A publicação dos seis contratos e a conferência do export remoto estão realizadas. Não arquivar a mudança enquanto as demais validações estiverem pendentes.
+
+## Filtros de chamados — implementação local
+
+Prioridade, status e parte do nome do solicitante podem ser combinados com Aplicar filtros. Limpar retorna à consulta sem filtros. As opções de prioridade/status são carregadas do Xano com seus IDs; não é necessário acesso a um diretório de usuários para pesquisar solicitante. Número/título continuam disponíveis como refinamento local. A leitura global do técnico permanece separada da autorização para assumir, comentar ou alterar status: associação, estado atual e solução obrigatória continuam sendo verificados pelo backend. Uma nova consulta completa limpa as seleções anteriores.
+
+O contrato GET de chamados com filtros precisa ser publicado e validado no Xano; a compilação e testes locais não comprovam essa integração remota.

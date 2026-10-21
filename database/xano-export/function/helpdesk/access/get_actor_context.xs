@@ -8,43 +8,48 @@ function "helpdesk/access/get_actor_context" {
       error_type = "accessdenied"
       error = "Authentication is required."
     }
-  
+
     db.get user {
       field_name = "id"
       field_value = $auth.id
-      output = ["id", "name", "perfil_id", "departamento_id"]
+      output = ["id", "name", "perfil_id", "departamento_id", "status"]
     } as $actor
-  
+
     precondition ($actor != null) {
       error_type = "accessdenied"
       error = "The authenticated user could not be verified."
     }
-  
+
+    precondition ($actor.status != "Inativo") {
+      error_type = "unauthorized"
+      error = "Account is inactive."
+    }
+
     precondition ($actor.perfil_id == 1 || $actor.perfil_id == 2 || $actor.perfil_id == 3 || $actor.perfil_id == 4) {
       error_type = "accessdenied"
       error = "The authenticated user does not have a recognized profile."
     }
-  
+
     conditional {
       if ($actor.perfil_id != 1) {
         precondition ($actor.departamento_id != null) {
           error_type = "accessdenied"
           error = "A department is required for this user profile."
         }
-      
+
         db.get departamento {
           field_name = "id"
           field_value = $actor.departamento_id
           output = ["id"]
         } as $department
-      
+
         precondition ($department != null) {
           error_type = "accessdenied"
           error = "The authenticated user's department could not be verified."
         }
       }
     }
-  
+
     // Minimal authenticated identity; does not include email, password, or other secrets.
     var $actor_context {
       value = {

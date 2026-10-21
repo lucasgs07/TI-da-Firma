@@ -8,16 +8,17 @@ query "status_ativo/{status_ativo_id}" verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.get status_ativo {
       field_name = "id"
       field_value = $input.status_ativo_id
     } as $status_ativo
-  
+
     precondition ($status_ativo != null) {
       error_type = "notfound"
       error = "Not Found."
     }
-  
+
     var $safe_status_ativo {
       value = {
         id       : $status_ativo.id

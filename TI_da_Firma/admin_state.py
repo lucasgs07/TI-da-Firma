@@ -55,6 +55,122 @@ class AdminState(rx.State):
     profile_options: list[dict[str, str]] = []
     selected_profile: str = ""
     form_revision: int = 0
+    users: list[dict[str, str]] = []
+    user: dict[str, str] = {}
+    users_page: int = 1
+    users_next_page: int = 0
+    users_total: int = 0
+    user_mode: str = "list"
+
+    @rx.var
+    def users_first(self) -> int:
+        return (self.users_page - 1) * 50 + 1 if self.users else 0
+
+    @rx.var
+    def users_last(self) -> int:
+        return (self.users_page - 1) * 50 + len(self.users) if self.users else 0
+
+    @rx.var
+    def users_pages(self) -> int:
+        return max(1, (self.users_total + 49) // 50)
+
+    @rx.var
+    def edited_department_label(self) -> str:
+        return next((r["label"] for r in self.department_options
+                     if r["id"] == self.user.get("departamento_id")), "Sem departamento")
+
+    @rx.var
+    def edit_department_labels(self) -> list[str]:
+        admin = any(r["id"] == "1" and r["label"] == self.selected_profile for r in self.profile_options)
+        return (["Sem departamento"] if admin else []) + self.department_labels
+
+    def _load_users(self, token: str):
+        data = api.admin_users(token, self.users_page)
+        self.users = [{k: "" if v is None else str(v) for k, v in row.items()}
+                      for row in data["items"]]
+        for row in self.users:
+            row["profile_name"] = next((r["label"] for r in self.profile_options if r["id"] == row.get("perfil_id")), row.get("perfil_id", "")).rsplit(" (#", 1)[0]
+            row["department_name"] = next((r["label"] for r in self.department_options if r["id"] == row.get("departamento_id")), "Sem departamento").rsplit(" (#", 1)[0]
+        self.users_next_page, self.users_total = data["next_page"], data["total"]
+
+    @rx.event
+    async def users_page_at(self, page: int):
+        if self.loading or self.saving or self.section != "usuarios" or page < 1:
+            return
+        self.error = self.success = ""
+        self.users = []
+        try:
+            auth = await self._auth()
+            self.loading, self.users_page = True, page
+            yield
+            self._load_users(auth.auth_token)
+        except ERRORS as exc:
+            yield await self._failure(exc)
+        finally:
+            self.loading = False
+
+    @rx.event
+    async def open_user(self, user_id: str):
+        if self.loading or self.saving or self.section != "usuarios":
+            return
+        self.error = self.success = ""
+        self.user = {}
+        try:
+            auth = await self._auth()
+            self.loading = True
+            yield
+            row = api.admin_user(auth.auth_token, int(user_id))
+            self.user = {k: "" if v is None else str(v) for k, v in row.items()}
+            self.selected_profile = next(r["label"] for r in self.profile_options
+                                         if r["id"] == self.user["perfil_id"])
+            self.user_mode = "edit"
+            self.form_revision += 1
+        except (StopIteration, TypeError):
+            self.error = "Perfil do usuário indisponível. Atualize a lista."
+        except ERRORS as exc:
+            yield await self._failure(exc)
+        finally:
+            self.loading = False
+
+    @rx.event
+    async def save_user(self, form: dict):
+        if self.loading or self.saving or self.section != "usuarios" or self.user_mode != "edit":
+            return
+        self.error = self.success = ""
+        try:
+            auth = await self._auth()
+            user_id = int(self.user["id"])
+            profile = option_id(self.profile_options, self.selected_profile)
+            department_label = str(form.get("departamento") or "")
+            department = (1 if profile == 3 else None if profile == 1 and department_label == "Sem departamento"
+                          else option_id(self.department_options, department_label))
+            payload = {"name": str(form.get("name") or "").strip(),
+                       "email": str(form.get("email") or "").strip(), "perfil_id": profile,
+                       "departamento_id": department, "status": str(form.get("status") or "")}
+            self.saving = True
+            yield
+            row = api.edit_user(auth.auth_token, user_id, payload)
+            self.user = {k: "" if v is None else str(v) for k, v in row.items()}
+            self.success = "Usuário atualizado."
+            self.user_mode = "list"
+            self.form_revision += 1
+            # Failure to refresh must not be reported as failure of the committed update.
+            try:
+                self._load_users(auth.auth_token)
+            except api.XanoUnavailable:
+                self.error = "Alteração salva. Não foi possível atualizar a lista; tente atualizar novamente."
+        except ERRORS as exc:
+            yield await self._failure(exc)
+        finally:
+            self.saving = False
+
+    @rx.event
+    def show_user_mode(self, mode: str):
+        if not self.loading and not self.saving and mode in ("list", "create"):
+            self.user_mode = mode
+            self.user = {}
+            self.error = self.success = ""
+            self.form_revision += 1
 
     @rx.var
     def department_labels(self) -> list[str]:
@@ -111,6 +227,8 @@ class AdminState(rx.State):
         self.error = self.success = ""
         self.ticket = self.task = self.metrics = {}
         self.history = self.tickets = self.tasks = []
+        self.users, self.user, self.user_mode = [], {}, "list"
+        self.users_page, self.users_next_page, self.users_total = 1, 0, 0
         self.department_options = self.profile_options = []
         self.history_filter = ""
         self._history_ticket_id = self._through_id = None
@@ -126,6 +244,8 @@ class AdminState(rx.State):
             if section == "dashboard":
                 self.metrics = api.admin_metrics(token)
             elif section == "chamados":
+                from .ticket_filters import reset_visible_filters
+                reset_visible_filters(self._get_root_state())
                 self.tickets = [_technical_ticket_view(r) for r in api.technician_tickets(token)]
             elif section == "tarefas":
                 self.tasks = [public_task(r) for r in api.list_tasks(token)]
@@ -135,6 +255,7 @@ class AdminState(rx.State):
                 if not self.department_options or not self.profile_options:
                     raise ValueError("Perfis ou departamentos indisponíveis.")
                 self.selected_profile = self.profile_options[0]["label"]
+                self._load_users(token)
             else:
                 self._load_history(token)
         except ERRORS as exc:

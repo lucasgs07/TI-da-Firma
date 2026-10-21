@@ -7,10 +7,11 @@ query departamento verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.query departamento {
       return = {type: "list"}
     } as $departamento_rows
-  
+
     array.map ($departamento_rows) {
       by = {id: $this.id, nome: $this.nome}
     } as $departamento
