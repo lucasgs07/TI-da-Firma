@@ -85,6 +85,47 @@ class AuthState(rx.State):
     comentario: str = ""
     solucao: str = ""
     status_destino: str = ""
+    busca_chamados: str = ""
+    filtro_status: str = "Todos os status"
+    filtro_prioridade: str = "Todas as prioridades"
+
+    @rx.event
+    def buscar_chamados(self, value: str):
+        self.busca_chamados = value
+
+    @rx.event
+    def filtrar_status(self, value: str):
+        self.filtro_status = value
+
+    @rx.event
+    def filtrar_prioridade(self, value: str):
+        self.filtro_prioridade = value
+
+    @rx.var
+    def lista_visual_chamados(self) -> list[dict[str, str]]:
+        rows = self.chamados_tecnicos if self._perfil_id() == 3 else self.chamados
+        query = self.busca_chamados.strip().lstrip("#").casefold()
+        return [r for r in rows
+                if (not query or query in r.get("titulo", "").casefold() or query in r.get("id", ""))
+                and (self.filtro_status == "Todos os status" or r.get("status_name") == self.filtro_status)
+                and (self.filtro_prioridade == "Todas as prioridades" or r.get("priority_name") == self.filtro_prioridade)]
+
+    @rx.var
+    def status_disponiveis(self) -> list[str]:
+        rows = self.chamados_tecnicos if self._perfil_id() == 3 else self.chamados
+        return ["Todos os status"] + sorted({r["status_name"] for r in rows if r.get("status_name")})
+
+    @rx.var
+    def prioridades_disponiveis(self) -> list[str]:
+        return ["Todas as prioridades"] + sorted({r["priority_name"] for r in self.chamados_tecnicos if r.get("priority_name")})
+
+    @rx.var
+    def resumo_chamados(self) -> dict[str, int]:
+        return {
+            "abertos": sum(r.get("status_name", "").casefold() == "aberto" for r in self.chamados),
+            "atendimento": sum(r.get("status_name", "").casefold() in ("em atendimento", "em análise") for r in self.chamados),
+            "resolvidos": sum(r.get("status_name", "").casefold() in ("resolvido", "fechado") for r in self.chamados),
+        }
 
     @rx.event
     def set_comentario(self, value: str):
@@ -147,6 +188,8 @@ class AuthState(rx.State):
             self.erro_tecnico = "Não foi possível concluir a consulta ou operação. Atualize para conferir o estado atual antes de tentar novamente."
 
     def _carregar_lista_tecnica(self) -> None:
+        from .ticket_filters import reset_visible_filters
+        reset_visible_filters(self._get_root_state())
         try:
             rows = xano_client.technician_tickets(self.auth_token)
             self.chamados_tecnicos = [_technical_ticket_view(row) for row in rows]
@@ -341,6 +384,8 @@ class AuthState(rx.State):
         self.enviando_chamado = False
 
     def _carregar_chamados(self) -> None:
+        from .ticket_filters import reset_visible_filters
+        reset_visible_filters(self._get_root_state())
         try:
             tickets = xano_client.list_tickets(self.auth_token)
         except xano_client.XanoConfigError as exc:
@@ -376,6 +421,9 @@ class AuthState(rx.State):
         self.perfil_json = json.dumps(user)
 
     def _limpar_sessao(self) -> None:
+        self.busca_chamados = ""
+        self.filtro_status = "Todos os status"
+        self.filtro_prioridade = "Todas as prioridades"
         self._limpar_office()
         self.auth_token = ""
         self.perfil_json = ""
@@ -384,6 +432,10 @@ class AuthState(rx.State):
         self._limpar_tecnico()
 
     def _limpar_office(self) -> None:
+        from .ticket_filters import TicketFilters
+        filters = self._get_root_state().substates.get(TicketFilters.get_name())
+        if filters is not None:
+            filters.reset()
         from .office_state import OfficeState
         from .admin_state import AdminState
         admin = self._get_root_state().substates.get(AdminState.get_name())

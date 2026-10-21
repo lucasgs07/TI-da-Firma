@@ -7,10 +7,11 @@ query categoria_chamado verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.query categoria_chamado {
       return = {type: "list"}
     } as $categoria_chamado_rows
-  
+
     array.map ($categoria_chamado_rows) {
       by = {id: $this.id, nome: $this.nome}
     } as $categoria_chamado

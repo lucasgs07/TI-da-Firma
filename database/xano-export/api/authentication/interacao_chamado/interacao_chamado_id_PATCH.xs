@@ -10,6 +10,7 @@ query "interacao_chamado/{interacao_chamado_id}" verb=PATCH {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     precondition (false) {
       error_type = "accessdenied"
       error = "Interaction edits are not permitted."

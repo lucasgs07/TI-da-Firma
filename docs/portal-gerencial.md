@@ -120,3 +120,11 @@ UPDATE query tarefa/{tarefa_id} PATCH
 A seleção foi autorizada explicitamente e publicada: `Pushed 7 documents to workspace 147362 ... in 11.5s`. O CLI sincronizou três GUIDs locais. Uma nova exportação, sem registros ou variáveis de ambiente, confirmou os sete contratos; fontes e exportações locais foram alinhadas à formatação canônica retornada, incluindo a normalização das expressões de `array.has`.
 
 Os cinco testes do helper `helpdesk/access/task_access` passaram no Xano: técnico secundário, funcionário secundário, responsável legado, negação para funcionário não associado e negação para gestor com responsável externo. São testes com mocks; não criaram tarefas ou usuários reais. Permanecem pendentes os fluxos autenticados de criação/conclusão, persistência, concorrência real e verificação visual. A publicação não conclui essas validações.
+
+## Filtros e senha manual — mudança em andamento
+
+Os portais de funcionário e gestor recebem prioridade, status e nome do solicitante, com Aplicar filtros e Limpar. Nome aceita até 200 caracteres e busca parcial sem distinção entre maiúsculas e minúsculas. Os filtros são combinados por interseção no backend. Gestor não T.I. continua limitado ao departamento; funcionário continua limitado aos próprios chamados, mesmo ao buscar outro solicitante. Gestor T.I. preserva consulta global. Não são acrescentadas ações de atendimento. Número/título continuam refinando o conjunto autorizado.
+
+O cadastro gerencial permanece com senha inicial digitada manualmente, validada pelas regras existentes: mínimo de oito caracteres, uma letra e um número. Não existe geração automática, envio automático de senha por e-mail ou implementação de recuperação de senha nesta mudança. A alteração cadastral de usuários continua exclusiva do admin.
+
+Os controles novos de filtros dependem da publicação dos contratos Xano; a validação local não substitui testes autenticados remotos.

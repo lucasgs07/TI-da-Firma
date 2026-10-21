@@ -8,16 +8,17 @@ query "departamento/{departamento_id}" verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.get departamento {
       field_name = "id"
       field_value = $input.departamento_id
     } as $departamento
-  
+
     precondition ($departamento != null) {
       error_type = "notfound"
       error = "Not Found."
     }
-  
+
     var $safe_departamento {
       value = {id: $departamento.id, nome: $departamento.nome}
     }

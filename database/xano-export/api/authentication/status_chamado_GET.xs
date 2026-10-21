@@ -7,10 +7,11 @@ query status_chamado verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.query status_chamado {
       return = {type: "list"}
     } as $status_chamado_rows
-  
+
     array.map ($status_chamado_rows) {
       by = {id: $this.id, nome: $this.nome}
     } as $status_chamado

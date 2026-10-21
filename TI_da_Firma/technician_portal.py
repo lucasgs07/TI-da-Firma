@@ -3,6 +3,8 @@ import reflex as rx
 
 from .auth_state import AuthState
 from .xano_client import OPERATIONAL_STATUSES
+from . import design as ui
+from .ticket_filters import TicketFilters, ticket_filters, ticket_results
 
 
 def _ticket(ticket: rx.Var[dict[str, str]]) -> rx.Component:
@@ -26,30 +28,17 @@ def _ticket(ticket: rx.Var[dict[str, str]]) -> rx.Component:
 
 def _list() -> rx.Component:
     return rx.vstack(
-        rx.flex(
-            rx.vstack(
-                rx.heading("Todos os chamados", size="6"),
-                rx.text("Acompanhe as solicitações e participe do atendimento.", color="gray", size="2"),
-                align="start", spacing="1", flex="1",
-            ),
-            rx.button("Atualizar lista", on_click=AuthState.atualizar_lista_tecnica,
-                      loading=AuthState.carregando_tecnico, variant="soft"),
-            gap="3", wrap="wrap", width="100%",
-        ),
-        rx.cond(
-            AuthState.carregando_tecnico,
-            rx.center(rx.spinner(), padding="2rem", width="100%"),
-            rx.cond(
-                AuthState.erro_tecnico == "",
-                rx.cond(
-                    AuthState.chamados_tecnicos.length() > 0,
-                    rx.vstack(rx.foreach(AuthState.chamados_tecnicos, _ticket), spacing="3", width="100%"),
-                    rx.callout("Nenhum chamado cadastrado.", color_scheme="gray", width="100%"),
-                ),
-            ),
-        ),
-        width="100%", spacing="5",
-    )
+        ui.heading("Todos os chamados", "Encontre solicitações para consultar ou participar do atendimento.",
+            rx.button("Atualizar lista", on_click=TicketFilters.apply(False),
+                      loading=AuthState.carregando_tecnico, variant="outline")),
+        ui.notice("Abra um chamado para consultar o histórico ou participar do atendimento."),
+        ticket_filters(), ticket_results(AuthState.lista_visual_chamados, "Consulta global da equipe técnica"),
+        rx.cond(AuthState.carregando_tecnico, rx.spinner(),
+            rx.cond(AuthState.erro_tecnico == "",
+                rx.cond(AuthState.lista_visual_chamados.length() > 0,
+                    ui.ticket_table(AuthState.lista_visual_chamados, AuthState.abrir_atendimento, "requester_name", "Solicitante"),
+                    ui.empty("Nenhum chamado encontrado", "Atualize a lista ou ajuste os filtros da fila.")))),
+        width="100%", spacing="5")
 
 
 def _comment(row: rx.Var[dict[str, str]]) -> rx.Component:

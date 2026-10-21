@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root { --nexo-brand:#16765b; --nexo-nav:#142d29; --nexo-ink:#182c2a; --nexo-muted:#647773; --nexo-border:#dfe7e4; --nexo-bg:#f4f7f6; }
+.radix-themes { --accent-9:var(--nexo-brand); --accent-10:#12634c; --accent-11:var(--nexo-brand); --accent-a3:#e5f3ec; --default-font-family:Inter,sans-serif; }
+* { box-sizing:border-box; }
+body { margin:0; }
+.nexo-panel { background:white; border:1px solid var(--nexo-border); border-radius:12px; padding:24px; min-width:0; }
+.nexo-notice { background:#e5f3ec; color:var(--nexo-brand); border-radius:8px; padding:16px; }
+.nexo-shell { min-height:100vh; background:var(--nexo-bg); }
+.nexo-sidebar { position:fixed; inset:0 auto 0 0; width:232px; background:var(--nexo-nav); color:#b8ccc6; padding:16px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; z-index:20; }
+.nexo-brand { padding:12px; min-height:84px; }
+.nexo-brand p:first-child { font-size:18px; font-weight:600; color:white; }
+.nexo-brand p:last-child { font-size:12px; }
+.nexo-nav { display:flex; flex-direction:column; gap:20px; width:100%; }
+.nexo-nav a,.nexo-nav button { width:100%; display:flex; justify-content:flex-start; align-items:center; text-align:left; min-height:44px; padding:0 16px; font-size:14px; color:#b8ccc6; border-radius:8px; text-decoration:none; background:transparent; box-shadow:none; }
+.nexo-nav .active { color:white; background:var(--nexo-brand); }
+.nexo-nav a:hover,.nexo-nav button:hover { color:white; background:#20433c; }
+.nexo-nav .active:hover { background:var(--nexo-brand); }
+.nexo-profile { margin-top:auto; padding:12px; overflow-wrap:anywhere; }
+.nexo-profile button { color:#b8ccc6; min-height:24px; padding:0; font-size:12px; }
+.nexo-workspace { margin-left:232px; min-width:0; }
+.nexo-topbar { height:72px; background:white; padding:0 24px; display:flex; align-items:center; gap:24px; color:var(--nexo-muted); font-size:12px; }
+.nexo-main { padding:40px; width:100%; min-width:0; }
+.nexo-mobile-header { display:none; }
+.nexo-table { width:100%; overflow-x:auto; border:1px solid var(--nexo-border); border-radius:12px; background:white; }
+.nexo-table table { min-width:680px; border-collapse:collapse; }
+.nexo-table th { background:var(--nexo-bg); color:var(--nexo-muted); font-size:12px; font-weight:400; height:48px; }
+.nexo-table td { height:72px; font-size:14px; vertical-align:middle; }
+.nexo-table th,.nexo-table td { padding:16px; box-shadow:none; }
+.nexo-record-link { justify-content:flex-start; color:var(--nexo-ink); text-align:left; white-space:normal; height:auto; padding:0; margin:0; }
+.nexo-record-link:hover { color:var(--nexo-brand); text-decoration:underline; background:transparent; }
+.nexo-badge { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:400; }
+.nexo-mobile-records { display:none; }
+.nexo-form-columns { display:grid; grid-template-columns:minmax(0,2.07fr) minmax(260px,1fr); gap:24px; align-items:start; width:100%; }
+.nexo-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; width:100%; }
+.nexo-login { display:grid; grid-template-columns:660fr 780fr; min-height:100vh; background:white; }
+.nexo-login-story { background:var(--nexo-nav); color:white; padding:64px; min-height:100vh; }
+.nexo-login-story-content { max-width:500px; display:flex; flex-direction:column; gap:32px; }
+.nexo-login-form { display:flex; justify-content:center; flex-direction:column; padding:80px 100px; min-width:0; }
+.nexo-login-form form { width:100%; }
+.nexo-login-form .rt-TextFieldRoot { width:100%; }
+.nexo-login-card { background:var(--nexo-brand); border-radius:16px; padding:24px; }
+.nexo-login-spacer { height:100px; }
+.nexo-loading { min-height:80vh; }
+@media (max-width:1100px) {
+  .nexo-main { padding:28px; }
+  .nexo-login-story { padding:40px; }
+  .nexo-login-form { padding:60px 40px; }
+  .nexo-form-columns { grid-template-columns:minmax(0,1fr); }
+}
+@media (max-width:767px) {
+  .nexo-sidebar { display:none; }
+  .nexo-workspace { margin-left:0; }
+  .nexo-topbar { display:none; }
+  .nexo-mobile-header { display:flex; align-items:center; gap:24px; height:72px; padding:20px; background:var(--nexo-nav); color:white; }
+  .nexo-mobile-header button { color:white; padding:0; }
+  .nexo-main { padding:20px; }
+  .nexo-heading { align-items:stretch; }
+  .nexo-heading > button { width:100%; }
+  .nexo-panel { padding:20px; }
+  .nexo-desktop-records { display:none; }
+  .nexo-mobile-records { display:flex; }
+  .nexo-mobile-records > div { width:100%; }
+  .nexo-pair { grid-template-columns:minmax(0,1fr); }
+  .nexo-login { display:block; }
+  .nexo-login-story { min-height:auto; padding:24px; }
+  .nexo-login-story-content { gap:16px; }
+  .nexo-login-spacer,.nexo-login-card,.nexo-login-story-caption,.nexo-login-story-description { display:none; }
+  .nexo-login-story h1 { font-size:24px; }
+  .nexo-login-form { padding:40px 24px; }
+  .nexo-employee-metrics { display:none; }
+}
+
+/* Diretório, edição e filtros: referências enviadas em 21/10/2026. */
+.nexo-filter-fields { display:grid; grid-template-columns:minmax(180px,1.3fr) minmax(130px,.85fr) minmax(130px,.85fr) minmax(160px,1.1fr); gap:16px; width:100%; }
+.nexo-user-columns { display:grid; grid-template-columns:minmax(0,2.07fr) minmax(240px,1fr); gap:24px; align-items:start; width:100%; }
+.nexo-summary-note { padding:16px; background:var(--nexo-bg); border-radius:8px; }
+.nexo-table tbody tr:nth-child(even) { background:var(--nexo-bg); }
+
+@media (max-width:767px) { .nexo-user-columns { grid-template-columns:minmax(0,1fr); } }
+
+.nexo-user-directory .nexo-table td { height:76px; }
+.nexo-user-directory .nexo-table th { height:48px; }
+.nexo-user-directory .nexo-table td:first-child { font-weight:500; }
+.nexo-user-directory .nexo-table td:last-child button { min-width:80px; }
+.nexo-page-current { min-width:76px; min-height:36px; display:flex; align-items:center; justify-content:center; border-radius:8px; }

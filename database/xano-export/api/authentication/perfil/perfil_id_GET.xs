@@ -8,16 +8,17 @@ query "perfil/{perfil_id}" verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.get perfil {
       field_name = "id"
       field_value = $input.perfil_id
     } as $perfil
-  
+
     precondition ($perfil != null) {
       error_type = "notfound"
       error = "Not Found."
     }
-  
+
     var $safe_perfil {
       value = {
         id       : $perfil.id

@@ -5,11 +5,43 @@ query chamado verb=GET {
   auth = "user"
 
   input {
+    int? prioridade_id? filters=min:1
+    int? status_chamado_id? filters=min:1
+    text solicitante_nome? filters=trim|max:200
   }
 
   stack {
     function.run "helpdesk/access/get_actor_context" as $actor
-  
+    conditional {
+      if ($input.prioridade_id > 0) {
+        db.get prioridade {
+          field_name = "id"
+          field_value = $input.prioridade_id
+          output = ["id"]
+        } as $requested_priority
+
+        precondition ($requested_priority != null) {
+          error_type = "inputerror"
+          error = "Invalid priority filter."
+        }
+      }
+    }
+
+    conditional {
+      if ($input.status_chamado_id > 0) {
+        db.get status_chamado {
+          field_name = "id"
+          field_value = $input.status_chamado_id
+          output = ["id"]
+        } as $requested_status
+
+        precondition ($requested_status != null) {
+          error_type = "inputerror"
+          error = "Invalid status filter."
+        }
+      }
+    }
+
     // Apply requester, manager, administrator, and employee scope in the query; technicians have global read access.
     db.query chamado {
       join = {
@@ -39,8 +71,8 @@ query chamado verb=GET {
           where: $db.chamado.status_chamado_id == $db.ticket_status.id
         }
       }
-    
-      where = ($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.requester.departamento_id == $actor.departamento_id)) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.chamado.solicitante_id == $actor.id)
+
+      where = (($actor.perfil_id == 1) || ($actor.perfil_id == 2 && ($actor.departamento_id == 1 || $db.requester.departamento_id == $actor.departamento_id)) || ($actor.perfil_id == 3) || ($actor.perfil_id == 4 && $db.chamado.solicitante_id == $actor.id)) && ($input.prioridade_id == null || $input.prioridade_id == 0 || $db.chamado.prioridade_id == $input.prioridade_id) && ($input.status_chamado_id == null || $input.status_chamado_id == 0 || $db.chamado.status_chamado_id == $input.status_chamado_id)
       sort = {chamado.created_at: "desc"}
       eval = {
         requester_name  : $db.requester.name
@@ -49,29 +81,29 @@ query chamado verb=GET {
         priority_name   : $db.priority.nome
         status_name     : $db.ticket_status.nome
       }
-    
+
       return = {type: "list"}
     } as $tickets
-  
+
     var $public_tickets {
       value = []
     }
-  
+
     foreach ($tickets) {
       each as $ticket {
         db.query chamado_tecnico {
           where = $db.chamado_tecnico.chamado_id == $ticket.id
           return = {type: "list"}
         } as $ticket_assignments
-      
+
         var $assignment_count {
           value = $ticket_assignments|count
         }
-      
+
         var $assigned_technicians {
           value = []
         }
-      
+
         foreach ($ticket_assignments) {
           each as $assignment {
             db.get user {
@@ -79,7 +111,7 @@ query chamado verb=GET {
               field_value = $assignment.tecnico_id
               output = ["id", "name"]
             } as $assigned_user
-          
+
             conditional {
               if ($assigned_user != null) {
                 array.push $assigned_technicians {
@@ -89,7 +121,7 @@ query chamado verb=GET {
             }
           }
         }
-      
+
         conditional {
           if ($assignment_count == 0 && $ticket.responsavel_id != null) {
             db.get user {
@@ -97,7 +129,7 @@ query chamado verb=GET {
               field_value = $ticket.responsavel_id
               output = ["id", "name"]
             } as $legacy_responsible
-          
+
             conditional {
               if ($legacy_responsible != null) {
                 array.push $assigned_technicians {
@@ -110,26 +142,31 @@ query chamado verb=GET {
             }
           }
         }
-      
-        array.push $public_tickets {
-          value = {
-            id                  : $ticket.id
-            titulo              : $ticket.titulo
-            descricao           : $ticket.descricao
-            solucao_final       : $ticket.solucao_final
-            status_chamado_id   : $ticket.status_chamado_id
-            status_name         : $ticket.status_name
-            categoria_chamado_id: $ticket.categoria_chamado_id
-            category_name       : $ticket.category_name
-            prioridade_id       : $ticket.prioridade_id
-            priority_name       : $ticket.priority_name
-            solicitante_id      : $ticket.solicitante_id
-            requester_name      : $ticket.requester_name
-            responsavel_id      : $ticket.responsavel_id
-            responsible_name    : $ticket.responsible_name
-            tecnicos            : $assigned_technicians
-            atualizado_em       : $ticket.atualizado_em
-            resolvido_em        : $ticket.resolvido_em
+
+        // Refine only the already authorized rows, without exposing a user directory.
+        conditional {
+          if ($input.solicitante_nome == null || $input.solicitante_nome == "" || ($ticket.requester_name|to_lower)|contains:($input.solicitante_nome|to_lower)) {
+            array.push $public_tickets {
+              value = {
+                id                  : $ticket.id
+                titulo              : $ticket.titulo
+                descricao           : $ticket.descricao
+                solucao_final       : $ticket.solucao_final
+                status_chamado_id   : $ticket.status_chamado_id
+                status_name         : $ticket.status_name
+                categoria_chamado_id: $ticket.categoria_chamado_id
+                category_name       : $ticket.category_name
+                prioridade_id       : $ticket.prioridade_id
+                priority_name       : $ticket.priority_name
+                solicitante_id      : $ticket.solicitante_id
+                requester_name      : $ticket.requester_name
+                responsavel_id      : $ticket.responsavel_id
+                responsible_name    : $ticket.responsible_name
+                tecnicos            : $assigned_technicians
+                atualizado_em       : $ticket.atualizado_em
+                resolvido_em        : $ticket.resolvido_em
+              }
+            }
           }
         }
       }

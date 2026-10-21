@@ -53,3 +53,13 @@ CREATE query helpdesk/tickets/history GET
 Nenhuma tabela, coluna, registro, variável de ambiente ou exclusão está selecionada. A publicação depende de autorização explícita desta simulação. Antes dela, os indicadores e a seção de logs novos não estão integrados ao backend remoto. Depois de publicar, conferir nova exportação e executar testes Xano e fluxos reais de administrador e negações dos demais perfis; verificar a interface em desktop/celular e um CSV com múltiplas páginas. Não arquivar enquanto essas verificações estiverem pendentes.
 
 Limitações do MVP: listas compartilhadas continuam completas em memória; métricas fazem uma leitura dos chamados e contagem no Xano, e o CSV ocupa memória proporcional ao volume. Não há truncamento automático. Se o volume inviabilizar o uso, será necessário planejar agregação otimizada/streaming preservando o contrato.
+
+## Gestão de usuários e filtros — mudança em andamento
+
+A implementação local da área Usuários contém lista paginada, total de registros, atualização e abertura do formulário de edição. Perfil e departamento usam os cadastros existentes; técnico permanece vinculado a T.I. O admin pode salvar nome, e-mail, perfil, departamento e Ativo/Inativo. Senha e ID não são campos editáveis. Administrador pode permanecer sem departamento; os demais perfis exigem departamento válido. A proteção do último admin ativo depende de validação concorrente no Xano.
+
+O botão Cadastrar usuário preserva o formulário com senha manual. Não há geração automática, sufixo fixo, envio de senha por e-mail ou recuperação de senha nesta mudança. Após uma edição confirmada, a lista é recarregada; se apenas a atualização da lista falhar, a mensagem informa que a alteração já foi salva. E-mail duplicado ou rejeição do backend mantém o formulário aberto. Logout e sessão rejeitada limpam lista/detalhe.
+
+Na lista de chamados, selecionar prioridade e status, informar parte do nome do solicitante e usar Aplicar filtros. Limpar remove todos os filtros e consulta novamente. Número/título refinam os registros retornados. Filtros não permitem atendimento no portal administrativo.
+
+Esses controles dependem dos contratos novos de usuários e filtros ainda não publicados. Testes Python usam transporte/estado simulados; não comprovam gravação ou autorização remotas. Ver `gestao-usuarios-implementacao.md` para evidências e pendências.

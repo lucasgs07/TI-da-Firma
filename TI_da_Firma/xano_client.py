@@ -216,6 +216,35 @@ def technician_tickets(token: str, client: httpx.Client | None = None) -> list[d
                                  operational=True), "chamados")
 
 
+def ticket_statuses(token: str) -> list[dict[str, str]]:
+    return _lookup_list(office_request("GET", "status_chamado", token), "status")
+
+
+def search_tickets(token: str, priority_id: int | None = None,
+                   status_id: int | None = None, requester: str = "",
+                   client: httpx.Client | None = None) -> list[dict]:
+    params: dict[str, str | int] = {}
+    for key, value in (("prioridade_id", priority_id), ("status_chamado_id", status_id)):
+        if value is not None:
+            if type(value) is not int or value < 1:
+                raise ValueError("Filtro inválido.")
+            params[key] = value
+    requester = requester.strip()
+    if len(requester) > 200:
+        raise ValueError("O nome do solicitante deve ter até 200 caracteres.")
+    if requester:
+        params["solicitante_nome"] = requester
+    rows = _record_list(_request("GET", "chamado", token=token, params=params,
+                                client=client, operational=True), "chamados")
+    # Detect an outdated backend instead of silently displaying unfiltered data.
+    if any((priority_id is not None and str(row.get("prioridade_id")) != str(priority_id))
+           or (status_id is not None and str(row.get("status_chamado_id")) != str(status_id))
+           or (requester and requester.casefold() not in str(row.get("requester_name") or "").casefold())
+           for row in rows):
+        raise XanoUnavailable("O servidor não aplicou os filtros. Verifique a publicação dos contratos.")
+    return rows
+
+
 def technician_ticket(ticket_id: int, token: str, client: httpx.Client | None = None) -> dict:
     _positive_ticket_id(ticket_id)
     return _record(_request("GET", f"chamado/{ticket_id}", token=token,
@@ -307,6 +336,61 @@ def directory(token: str, profile_id: int, department_id: int) -> list[dict]:
             page = int(next_page)
         except (ValueError, TypeError) as exc:
             raise XanoUnavailable("Paginação inválida do diretório.") from exc
+
+
+ADMIN_USER_FIELDS = ("id", "name", "email", "perfil_id", "departamento_id", "status")
+
+
+def _admin_user(data: object) -> dict:
+    row = _record(data, "usuário")
+    if type(row.get("id")) is not int or row["id"] < 1:
+        raise XanoUnavailable("Resposta inválida ao consultar usuário.")
+    return {key: row.get(key) for key in ADMIN_USER_FIELDS}
+
+
+def admin_users(token: str, page: int = 1) -> dict:
+    """Página global do diretório; autorização administrativa pertence ao Xano."""
+    if type(page) is not int or page < 1:
+        raise ValueError("Página inválida.")
+    data = _record(office_request("GET", "users/directory", token,
+                                  params={"page": page, "per_page": 50}), "usuários")
+    items = [_admin_user(row) for row in _record_list(data.get("items"), "usuários")]
+    ids = [row["id"] for row in items]
+    next_page = data.get("nextPage") or 0
+    total = data.get("itemsTotal")
+    if (len(ids) != len(set(ids)) or len(ids) > 50 or type(total) is not int
+            or total < len(items) or type(next_page) is not int
+            or (next_page != 0 and next_page <= page)
+            or (data.get("curPage") != page)):
+        raise XanoUnavailable("Paginação inválida do diretório administrativo.")
+    return {"items": items, "page": page, "next_page": next_page, "total": total}
+
+
+def admin_user(token: str, user_id: int) -> dict:
+    if type(user_id) is not int or user_id < 1:
+        raise ValueError("Usuário inválido.")
+    result = _admin_user(office_request("GET", f"users/{user_id}", token))
+    if result["id"] != user_id:
+        raise XanoUnavailable("O servidor retornou outro usuário.")
+    return result
+
+
+def edit_user(token: str, user_id: int, fields: dict) -> dict:
+    allowed = set(ADMIN_USER_FIELDS) - {"id"}
+    if (type(user_id) is not int or user_id < 1 or not fields
+            or set(fields) - allowed):
+        raise ValueError("Campos de edição inválidos.")
+    if "status" in fields and fields["status"] not in ("Ativo", "Inativo"):
+        raise ValueError("Status inválido.")
+    if "perfil_id" in fields and (type(fields["perfil_id"]) is not int or fields["perfil_id"] not in (1, 2, 3, 4)):
+        raise ValueError("Perfil inválido.")
+    if "departamento_id" in fields and fields["departamento_id"] is not None and (
+            type(fields["departamento_id"]) is not int or fields["departamento_id"] < 1):
+        raise ValueError("Departamento inválido.")
+    result = _admin_user(office_request("PATCH", f"users/{user_id}", token, payload=dict(fields)))
+    if result["id"] != user_id:
+        raise XanoUnavailable("O servidor retornou outro usuário.")
+    return result
 
 
 def provision_user(token: str, name: str, email: str, password: str,

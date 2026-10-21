@@ -6,7 +6,7 @@ query "auth/login" verb=POST {
   input {
     // Account email address.
     email email filters=trim|lower
-  
+
     // Account password.
     text password filters=min:8 {
       sensitive = true
@@ -18,55 +18,72 @@ query "auth/login" verb=POST {
     db.get user {
       field_name = "email"
       field_value = $input.email
-      output = ["id", "name", "email", "password", "perfil_id", "departamento_id"]
+      output = [
+        "id"
+        "name"
+        "email"
+        "password"
+        "perfil_id"
+        "departamento_id"
+        "status"
+      ]
     } as $user
-  
+
     precondition ($user != null) {
       error_type = "accessdenied"
       error = "Invalid Credentials."
     }
-  
+
+    precondition ($user.status != "Inativo") {
+      error_type = "accessdenied"
+      error = "Invalid Credentials."
+    }
+
     precondition ($user.password != null) {
       error_type = "accessdenied"
       error = "Invalid Credentials."
     }
-  
+
     security.check_password {
       text_password = $input.password
       hash_password = $user.password
     } as $pass_result
-  
+
     precondition ($pass_result) {
       error_type = "accessdenied"
       error = "Invalid Credentials."
     }
-  
+
     // Do not issue an operational session for accounts with missing or invalid profiles.
     precondition ($user.perfil_id == 1 || $user.perfil_id == 2 || $user.perfil_id == 3 || $user.perfil_id == 4) {
       error_type = "accessdenied"
       error = "Invalid Credentials."
     }
-  
+
     db.get perfil {
       field_name = "id"
       field_value = $user.perfil_id
-      output = ["id"]
+      output = ["id", "name"]
+      addon = [
+        {
+          name  : "perfil"
+          output: ["name"]
+          input : {perfil_id: $output.id}
+          as    : "_user"
+        }
+        {
+          name : "perfil"
+          input: {perfil_id: $output.id}
+          as   : "_perfil"
+        }
+      ]
     } as $profile
-  
+
     precondition ($profile != null) {
       error_type = "accessdenied"
       error = "Invalid Credentials."
     }
-  
-    conditional {
-      if ($user.perfil_id != 1) {
-        precondition ($user.departamento_id != null) {
-          error_type = "accessdenied"
-          error = "Invalid Credentials."
-        }
-      }
-    }
-  
+
     conditional {
       if ($user.departamento_id != null) {
         db.get departamento {
@@ -74,14 +91,14 @@ query "auth/login" verb=POST {
           field_value = $user.departamento_id
           output = ["id"]
         } as $department
-      
+
         precondition ($department != null) {
           error_type = "accessdenied"
           error = "Invalid Credentials."
         }
       }
     }
-  
+
     // Non-secret session profile; never includes the password hash.
     var $safe_user {
       value = {
@@ -92,14 +109,14 @@ query "auth/login" verb=POST {
         departamento_id: $user.departamento_id
       }
     }
-  
+
     security.create_auth_token {
       table = "user"
       extras = {}
       expiration = 86400
       id = $user.id
     } as $authToken
-  
+
     function.run "Quick Start/log_event" {
       input = {
         user_id : $user.id

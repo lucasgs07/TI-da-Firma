@@ -7,10 +7,11 @@ query status_ativo verb=GET {
   }
 
   stack {
+    function.run "helpdesk/access/get_actor_context" as $verified_actor
     db.query status_ativo {
       return = {type: "list"}
     } as $status_ativo_rows
-  
+
     array.map ($status_ativo_rows) {
       by = {
         id       : $this.id
