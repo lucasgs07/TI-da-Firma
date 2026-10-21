@@ -32,17 +32,19 @@ def detail(kind: str) -> rx.Component:
 
 def user_form() -> rx.Component:
     return rx.form(rx.vstack(
-        rx.input(name="name", placeholder="Nome", aria_label="Nome", required=True, disabled=S.saving, width="100%"),
-        rx.input(name="email", placeholder="E-mail", aria_label="E-mail", type="email", required=True, disabled=S.saving, width="100%"),
-        rx.input(name="password", id="admin_password", placeholder="Senha inicial", aria_label="Senha inicial", type="password",
-                 required=True, min_length=8, disabled=S.saving, width="100%"),
-        rx.text("Perfil"),
-        rx.select(S.profile_labels, value=S.selected_profile, on_change=S.select_profile, disabled=S.saving, width="100%"),
-        rx.cond(S.creating_technician, rx.callout("Técnicos são associados obrigatoriamente a T.I.", color_scheme="gray"),
-                rx.select(S.department_labels, name="departamento", placeholder="Departamento", required=True,
-                          disabled=S.saving, width="100%")),
-        rx.button("Criar usuário", type="submit", loading=S.saving),
-        align="start", spacing="3", width="100%"), on_submit=S.create_user, reset_on_submit=False,
+        ui.field("Nome *", rx.input(name="name", placeholder="Ana Souza", aria_label="Nome", required=True, disabled=S.saving, width="100%")),
+        ui.field("E-mail *", rx.input(name="email", placeholder="ana.souza@empresa.com.br", aria_label="E-mail", type="email", required=True, disabled=S.saving, width="100%")),
+        rx.box(
+            ui.field("Perfil *", rx.select(S.profile_labels, value=S.selected_profile, on_change=S.select_profile, disabled=S.saving, width="100%")),
+            ui.field("Departamento *", rx.cond(S.creating_technician,
+                rx.input(value="T.I. · obrigatório para técnicos", disabled=True, width="100%"),
+                rx.select(S.department_labels, name="departamento", placeholder="Departamento", required=True, disabled=S.saving, width="100%"))),
+            class_name="nexo-pair"),
+        ui.field("Senha inicial *", rx.input(name="password", id="admin_password", placeholder="••••••••••••", aria_label="Senha inicial", type="password",
+                 required=True, min_length=8, auto_complete=False, disabled=S.saving, width="100%")),
+        rx.text("Pelo menos 8 caracteres, uma letra e um número.", font_size="12px", color=ui.MUTED),
+        rx.button("Cadastrar usuário", type="submit", loading=S.saving, width="200px"),
+        align="start", gap="20px", width="100%"), on_submit=S.create_user, reset_on_submit=False,
         key=S.form_revision, width="100%")
 
 
@@ -93,13 +95,15 @@ def users() -> rx.Component:
     return rx.vstack(
         rx.cond(S.user_mode == "edit",
             ui.heading("Editar usuário", rx.fragment("Usuários / ", S.user.get("name", ""))),
-            ui.heading("Usuários", "Consulte as pessoas cadastradas e gerencie seus dados de acesso.",
-                rx.button("+ Cadastrar usuário", on_click=S.show_user_mode("create")))),
+            rx.cond(S.user_mode == "create", rx.fragment(),
+                ui.heading("Usuários", "Consulte as pessoas cadastradas e gerencie seus dados de acesso.",
+                    rx.button("+ Cadastrar usuário", on_click=S.show_user_mode("create"))))),
         rx.match(S.user_mode,
-            ("create", ui.panel(rx.vstack(rx.button("Voltar à lista", on_click=S.show_user_mode("list"), variant="outline"), user_form(), width="100%", spacing="4"))),
+            ("create", rx.vstack(ui.user_registration(user_form()),
+                rx.button("Voltar à lista", on_click=S.show_user_mode("list"), variant="outline", disabled=S.saving), width="100%", spacing="4")),
             ("edit", rx.box(ui.panel(user_edit_form()), user_summary(), class_name="nexo-user-columns")),
             rx.vstack(
-                rx.flex(rx.heading("Diretório de usuários", size="4"), rx.text(S.users_total, " usuários", color=ui.MUTED, font_size="12px"), gap="5", align="center"),
+                rx.flex(rx.heading("Diretório de usuários", size="4"), rx.text(S.users_total, " usuários", color=ui.MUTED, font_size="12px"), gap="16px", align="center"),
                 rx.cond(S.users.length() > 0,
                     ui.table(["Nome", "E-mail", "Perfil", "Departamento", "Status", "Ações"], S.users, row),
                     rx.cond(S.error == "", ui.empty("Nenhum usuário", "Nenhum usuário encontrado nesta página."))),
