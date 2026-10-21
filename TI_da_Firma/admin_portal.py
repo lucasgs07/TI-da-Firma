@@ -133,10 +133,16 @@ def logs() -> rx.Component:
         ui.heading("O histórico, com contexto.", "Consulte interações registradas e exporte o histórico completo."),
         rx.form(rx.flex(
             rx.input(name="chamado_id", placeholder="Nº do chamado · opcional", aria_label="Número do chamado",
-                     type="number", min=1, disabled=S.saving, width=rx.breakpoints(initial="100%", sm="360px")),
-            rx.button("Aplicar filtro", type="submit", disabled=S.saving),
+                     type="number", min=1, disabled=S.saving, width=rx.breakpoints(initial="100%", sm="360px"),
+                     height="34px", font_size="12px", border_radius="6px"),
+            rx.button("Aplicar filtro", type="submit", disabled=S.saving,
+                      width="120px", height="34px", min_height="34px", font_size="12px", font_weight="400",
+                      background=ui.BRAND, color="white", border_radius="6px"),
             rx.button("Baixar histórico CSV", type="button", on_click=S.export_history,
-                      loading=S.saving, disabled=S.error != "", variant="outline"), gap="4", wrap="wrap"),
+                      loading=S.saving, disabled=S.error != "", variant="outline",
+                      width="176px", height="34px", min_height="34px", font_size="12px", font_weight="400",
+                      background="white", color=ui.INK, border="1px solid " + ui.BORDER,
+                      box_shadow="none", border_radius="6px"), gap="12px", align="center", wrap="wrap"),
             on_submit=S.filter_history, reset_on_submit=False, width="100%"),
         ui.notice(rx.fragment("Filtro aplicado: ", rx.cond(S.history_filter == "", "Todos os chamados", S.history_filter),
                               ". A exportação usa este filtro aplicado.")),
@@ -173,9 +179,14 @@ def dashboard() -> rx.Component:
                     rx.button("Consultar chamados", on_click=S.navigate("chamados"), variant="outline", width="100%"),
                     align="start", spacing="5")), class_name="nexo-form-columns"),
             ui.panel(rx.vstack(rx.heading("Acesso rápido", size="4"),
-                rx.flex(rx.button("Cadastrar usuário", on_click=S.navigate("usuarios"), variant="outline"),
-                        rx.button("Consultar tarefas", on_click=S.navigate("tarefas"), variant="outline"),
-                        rx.button("Histórico e CSV", on_click=S.navigate("logs"), variant="outline"), gap="4", wrap="wrap"),
+                rx.flex(*[
+                    rx.button(label, on_click=S.navigate(target), variant="outline",
+                        width="195px", max_width="100%", height="40px", min_height="40px",
+                        background="white", color=ui.INK, border="1px solid " + ui.BORDER,
+                        box_shadow="none", border_radius="8px", font_size="14px", font_weight="400")
+                    for label, target in [("Cadastrar usuário", "usuarios"),
+                                          ("Consultar tarefas", "tarefas"), ("Histórico e CSV", "logs")]
+                ], gap="16px", wrap="wrap", width="100%"),
                 align="start", spacing="5"), width="100%"),
             align="start", spacing="5", width="100%")), align="start", spacing="5", width="100%")
 

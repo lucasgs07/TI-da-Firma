@@ -165,4 +165,4 @@ def ticket_filters() -> rx.Component:
 def ticket_results(rows, scope):
     from . import design as ui
     return rx.flex(rx.text(rows.length(), " chamados encontrados", font_size="14px"),
-        rx.text(scope, color=ui.MUTED, font_size="12px"), gap="6", wrap="wrap", width="100%")
+        rx.text(scope, color=ui.MUTED, font_size="12px"), gap="12px", align="center", wrap="wrap", width="100%")
