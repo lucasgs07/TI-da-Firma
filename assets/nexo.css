@@ -74,6 +74,9 @@ body { margin:0; }
 /* Diretório, edição e filtros: referências enviadas em 21/10/2026. */
 .nexo-filter-fields { display:grid; grid-template-columns:minmax(180px,1.3fr) minmax(130px,.85fr) minmax(130px,.85fr) minmax(160px,1.1fr); gap:16px; width:100%; }
 .nexo-user-columns { display:grid; grid-template-columns:minmax(0,2.07fr) minmax(240px,1fr); gap:24px; align-items:start; width:100%; }
+.nexo-user-registration .rt-SelectTrigger { height:48px; border-radius:8px; font-size:14px; }
+.nexo-user-registration .rt-TextFieldRoot { box-shadow:inset 0 0 0 1px var(--nexo-border); }
+.nexo-user-registration .rt-SelectTrigger { box-shadow:inset 0 0 0 1px var(--nexo-border); }
 .nexo-summary-note { padding:16px; background:var(--nexo-bg); border-radius:8px; }
 .nexo-table tbody tr:nth-child(even) { background:var(--nexo-bg); }
 

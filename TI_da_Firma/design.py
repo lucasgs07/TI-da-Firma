@@ -47,6 +47,23 @@ def field(label, control) -> rx.Component:
                      align="start", spacing="2", width="100%")
 
 
+def user_registration(form) -> rx.Component:
+    """Composição da tela 11 do Figma, compartilhada pelos cadastros autorizados."""
+    return rx.vstack(
+        heading("Uma nova pessoa na firma.", "Cadastre o usuário e defina seu perfil de acesso."),
+        rx.box(panel(form), panel(rx.vstack(
+            rx.heading("Cada pessoa, sua área.", font_size="18px", font_weight="600"),
+            *[rx.box(rx.text(label), rx.text(description), color=MUTED, width="100%")
+              for label, description in [
+                  ("Funcionário", "Abre chamados e conclui tarefas próprias."),
+                  ("Técnico", "Participa do atendimento."),
+                  ("Gestor", "Organiza demandas do seu escopo."),
+                  ("Administrador", "Consulta global e gerencia usuários."),
+              ]], align="start", gap="20px", width="100%")),
+            class_name="nexo-user-columns nexo-user-registration"),
+        align="start", spacing="5", width="100%")
+
+
 def table(headers: list[str], rows, render_row) -> rx.Component:
     return rx.box(rx.table.root(
         rx.table.header(rx.table.row(*[rx.table.column_header_cell(h) for h in headers])),

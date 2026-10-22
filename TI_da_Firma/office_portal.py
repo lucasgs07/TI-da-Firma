@@ -34,19 +34,27 @@ def form(kind: str, *children) -> rx.Component:
 
 
 def user_form() -> rx.Component:
-    return rx.vstack(
-        rx.heading("Cadastrar usuário", size="5"),
-        form("usuario", field("Nome", "name", required=True),
-             field("E-mail", "email", type="email", required=True),
-             field("Senha inicial", "password", type="password", id="office_password",
-                   min_length=8, required=True, auto_complete=False),
-             select("Perfil", "perfil", S.profile_labels, value=S.selected_profile,
-                    on_change=S.select_profile),
-             rx.cond(S.creating_technician,
-                     rx.callout("Técnicos são vinculados obrigatoriamente à T.I.", width="100%"),
-                     select("Departamento", "departamento", S.department_labels)),
-             rx.text("A senha deve conter ao menos 8 caracteres, uma letra e um número.", size="2", color="gray")),
-        width="100%", spacing="4", align="start")
+    return ui.user_registration(rx.form(rx.vstack(
+        ui.field("Nome *", rx.input(name="name", placeholder="Ana Souza", required=True,
+            aria_label="Nome", disabled=S.saving, width="100%")),
+        ui.field("E-mail *", rx.input(name="email", placeholder="ana.souza@empresa.com.br",
+            type="email", required=True, aria_label="E-mail", disabled=S.saving, width="100%")),
+        rx.box(
+            ui.field("Perfil *", rx.select(S.profile_labels, name="perfil", required=True,
+                value=S.selected_profile, on_change=S.select_profile, disabled=S.saving, width="100%")),
+            ui.field("Departamento *", rx.cond(S.creating_technician,
+                rx.input(value="T.I. · obrigatório para técnicos", disabled=True, width="100%"),
+                rx.select(S.department_labels, name="departamento", required=True,
+                    placeholder="Departamento", disabled=S.saving, width="100%"))),
+            class_name="nexo-pair"),
+        ui.field("Senha inicial *", rx.input(name="password", id="office_password", type="password",
+            placeholder="••••••••••••", min_length=8, required=True, auto_complete=False,
+            aria_label="Senha inicial", disabled=S.saving, width="100%")),
+        rx.text("Pelo menos 8 caracteres, uma letra e um número.", font_size="12px", color=ui.MUTED),
+        rx.button("Cadastrar usuário", type="submit", loading=S.saving, width="200px"),
+        align="start", gap="20px", width="100%"),
+        on_submit=lambda data: S.submit("usuario", data), reset_on_submit=False,
+        key=S.form_revision.to_string(), width="100%"))
 
 
 def _owner_checkbox(row: rx.Var[dict[str, str]]) -> rx.Component:
@@ -203,7 +211,7 @@ def office_portal(employee: bool = False) -> rx.Component:
         rx.cond(S.loading, rx.spinner(), rx.match(S.section,
             ("chamados", _manager_tickets()),
             ("novo_chamado", rx.cond(S.error == "", ui.panel(ticket_form(), width="100%"))),
-            ("usuarios", rx.cond(S.profile_options.length() > 0, ui.panel(user_form(), width="100%"))),
+            ("usuarios", rx.cond(S.profile_options.length() > 0, user_form())),
             ("nova_tarefa", rx.cond(S.priority_options.length() > 0, task_form())),
             ("detalhe", ticket_detail()), ("tarefas", _tasks()), ("tarefa", task_detail()), rx.fragment())),
         width="100%", align="start", spacing="5", style={"overflow_wrap": "anywhere"})
