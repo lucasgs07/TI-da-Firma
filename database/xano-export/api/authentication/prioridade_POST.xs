@@ -9,19 +9,32 @@ query prioridade verb=POST {
   
     // Optional priority level
     int nivel?
+
+    // SLA duration in approved working hours, or null when no policy applies.
+    int? sla_horas?
   }
 
   stack {
     function.run "helpdesk/access/require_admin" as $admin
+    precondition ($input.sla_horas == null || $input.sla_horas == 12 || $input.sla_horas == 36 || $input.sla_horas == 50) {
+      error_type = "inputerror"
+      error = "SLA hours must be 12, 36, 50, or null."
+    }
+
     db.add prioridade {
-      data = {nome: $input.nome, nivel: $input.nivel}
+      data = {
+        nome     : $input.nome
+        nivel    : $input.nivel
+        sla_horas: $input.sla_horas
+      }
     } as $created_prioridade
   
     var $prioridade {
       value = {
-        id   : $created_prioridade.id
-        nome : $created_prioridade.nome
-        nivel: $created_prioridade.nivel
+        id       : $created_prioridade.id
+        nome     : $created_prioridade.nome
+        nivel    : $created_prioridade.nivel
+        sla_horas: $created_prioridade.sla_horas
       }
     }
   }

@@ -37,6 +37,8 @@ query "chamado/{chamado_id}" verb=PATCH {
         "responsavel_id"
         "atualizado_em"
         "resolvido_em"
+        "sla_inicio_em"
+        "prazo_sla"
       ]
     } as $ticket
   
@@ -194,6 +196,8 @@ query "chamado/{chamado_id}" verb=PATCH {
         "responsavel_id"
         "atualizado_em"
         "resolvido_em"
+        "sla_inicio_em"
+        "prazo_sla"
       ]
     } as $saved_ticket
   
@@ -221,6 +225,8 @@ query "chamado/{chamado_id}" verb=PATCH {
         prioridade_id       : $saved_ticket.prioridade_id
         solicitante_id      : $saved_ticket.solicitante_id
         responsavel_id      : $saved_ticket.responsavel_id
+        sla_inicio_em       : $saved_ticket.sla_inicio_em
+        prazo_sla           : $saved_ticket.prazo_sla
         atualizado_em       : $saved_ticket.atualizado_em
         resolvido_em        : $saved_ticket.resolvido_em
       }

@@ -5,6 +5,7 @@ table prioridade {
     int id
     text nome? filters=trim
     int nivel?
+    int? sla_horas?
   }
 
   index = [{type: "primary", field: [{name: "id"}]}]

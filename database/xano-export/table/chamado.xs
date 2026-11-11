@@ -27,6 +27,8 @@ table chamado {
   
     date? atualizado_em?
     date? resolvido_em?
+    timestamp? sla_inicio_em?
+    timestamp? prazo_sla?
     int ativo_id? {
       table = "ativo"
     }

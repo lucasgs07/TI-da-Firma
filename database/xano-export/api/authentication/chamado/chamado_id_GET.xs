@@ -182,6 +182,8 @@ query "chamado/{chamado_id}" verb=GET {
         responsavel_id      : $ticket.responsavel_id
         responsible_name    : $ticket.responsible_name
         tecnicos            : $assigned_technicians
+        sla_inicio_em       : $ticket.sla_inicio_em
+        prazo_sla           : $ticket.prazo_sla
         atualizado_em       : $ticket.atualizado_em
         resolvido_em        : $ticket.resolvido_em
       }

@@ -39,14 +39,33 @@ query chamado verb=POST {
     db.get prioridade {
       field_name = "id"
       field_value = $input.prioridade_id
-      output = ["id", "nome"]
+      output = ["id", "nome", "sla_horas"]
     } as $priority
   
     precondition ($priority != null) {
       error_type = "inputerror"
       error = "The selected priority does not exist."
     }
+
+    var $sla_dates {
+      value = {sla_inicio_em: null, prazo_sla: null}
+    }
   
+    conditional {
+      if ($priority.sla_horas != null) {
+        function.run "helpdesk/sla/calculate_deadline" {
+          input = {
+            start_at : now
+            sla_horas: $priority.sla_horas
+          }
+        } as $calculated_sla
+
+        var.update $sla_dates {
+          value = $calculated_sla
+        }
+      }
+    }
+
     db.get status_chamado {
       field_name = "nome"
       field_value = "Aberto"
@@ -64,6 +83,8 @@ query chamado verb=POST {
         status_chamado_id   : $open_status.id
         categoria_chamado_id: $category.id
         prioridade_id       : $priority.id
+        sla_inicio_em       : $sla_dates.sla_inicio_em
+        prazo_sla           : $sla_dates.prazo_sla
         solicitante_id      : $actor.id
         responsavel_id      : null
         atualizado_em       : now
@@ -83,6 +104,9 @@ query chamado verb=POST {
         categoria_nome      : $category.nome
         prioridade_id       : $priority.id
         prioridade_nome     : $priority.nome
+        sla_horas           : $priority.sla_horas
+        sla_inicio_em       : $created_ticket.sla_inicio_em
+        prazo_sla           : $created_ticket.prazo_sla
         solicitante_id      : $actor.id
         solicitante_nome    : $actor.name
         responsavel_id      : null

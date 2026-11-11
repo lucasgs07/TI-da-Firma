@@ -12,7 +12,12 @@ query prioridade verb=GET {
     } as $prioridade_rows
   
     array.map ($prioridade_rows) {
-      by = {id: $this.id, nome: $this.nome, nivel: $this.nivel}
+      by = {
+        id       : $this.id
+        nome     : $this.nome
+        nivel    : $this.nivel
+        sla_horas: $this.sla_horas
+      }
     } as $prioridade
   }
 

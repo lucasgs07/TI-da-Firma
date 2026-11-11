@@ -11,6 +11,9 @@ query "prioridade/{prioridade_id}" verb=PATCH {
   
     // Priority level
     int nivel?
+
+    // SLA duration in approved working hours, or null when no policy applies.
+    int? sla_horas?
   }
 
   stack {
@@ -50,6 +53,19 @@ query "prioridade/{prioridade_id}" verb=PATCH {
       }
     }
   
+    conditional {
+      if ($raw_input.body|has:"sla_horas") {
+        precondition ($input.sla_horas == null || $input.sla_horas == 12 || $input.sla_horas == 36 || $input.sla_horas == 50) {
+          error_type = "inputerror"
+          error = "SLA hours must be 12, 36, 50, or null."
+        }
+
+        var.update $patch {
+          value = $patch|set:"sla_horas":$input.sla_horas
+        }
+      }
+    }
+
     precondition (($patch|count) > 0) {
       error_type = "inputerror"
       error = "At least one writable field must be supplied."
@@ -63,9 +79,10 @@ query "prioridade/{prioridade_id}" verb=PATCH {
   
     var $prioridade {
       value = {
-        id   : $updated_prioridade.id
-        nome : $updated_prioridade.nome
-        nivel: $updated_prioridade.nivel
+        id       : $updated_prioridade.id
+        nome     : $updated_prioridade.nome
+        nivel    : $updated_prioridade.nivel
+        sla_horas: $updated_prioridade.sla_horas
       }
     }
   }
