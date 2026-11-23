@@ -1,68 +1,60 @@
-# Plataforma de Gestão Interna Empresarial
+# Nexo | Gestão Interna
 
-Aplicação web para centralizar chamados, tarefas e informações operacionais, com acesso organizado por perfil de usuário. Este repositório contém o frontend em **Reflex (Python)** e os contratos exportados do backend **Xano**.
+O Nexo é uma aplicação web para abrir e atender chamados internos, distribuir tarefas e gerenciar usuários. A interface é feita em **Reflex (Python)**, o **Xano** autentica usuários e aplica as permissões, e o **n8n** fornece sugestões de solução no atendimento técnico.
 
-## Sobre o projeto
+## O que cada perfil pode fazer
 
-A plataforma busca facilitar o registro e o acompanhamento de solicitações, aproximando funcionários, técnicos e gestores em um mesmo fluxo. O sistema diferencia o acesso de funcionários, técnicos, gestores e administradores; as permissões de dados e operações são aplicadas pelo backend Xano.
+| Perfil | Funcionalidades |
+| --- | --- |
+| Funcionário | Abre e acompanha os próprios chamados. Em **Minhas tarefas**, consulta as tarefas atribuídas a ele e registra a solução ao concluí-las. |
+| Técnico | Assume chamados abertos, registra interações e atualiza o status e a solução final dos atendimentos sob sua responsabilidade. Também consulta e conclui as próprias tarefas. |
+| Gestor | Abre chamados, consulta os chamados do seu departamento, cadastra usuários e cria tarefas para um ou mais responsáveis autorizados. O gestor de T.I. tem consulta global de chamados, escopo ampliado de cadastro e atribui tarefas aos técnicos de T.I. |
+| Administrador | Acompanha indicadores no dashboard global, consulta chamados e tarefas, cadastra e edita usuários e exporta o histórico de interações em CSV. |
 
-## Perfis e áreas
+A busca de chamados permite filtrar por prioridade, status e nome do solicitante dentro do escopo de acesso de cada perfil.
 
-- **Funcionário:** abre e acompanha os próprios chamados e consulta/conclui tarefas atribuídas a ele, com solução informada.
-- **Técnico:** consulta chamados, pode associar chamados abertos a si, registrar interações e atualizar o atendimento conforme as regras do backend.
-- **Gestor:** consulta chamados e organiza usuários e tarefas de acordo com o escopo do seu departamento; o gestor de T.I. tem o escopo administrativo descrito na documentação.
-- **Administrador:** dispõe de dashboard global, consultas de chamados e tarefas, cadastro de usuários e consulta/exportação CSV do histórico de interações.
+### Sugestão de solução no atendimento
 
-Os portais de funcionário, técnico e gestor permitem as operações descritas em suas respectivas documentações. O portal administrativo mantém chamados e tarefas em modo de consulta; cadastro de usuários e exportação do histórico são áreas separadas.
+No detalhe de um chamado editável, o técnico autorizado pode selecionar **Sugerir solução**. O Xano verifica a permissão antes de chamar o n8n. O modal **Solução sugerida** mostra os procedimentos retornados e, quando disponível e autorizada, a referência a outro chamado.
 
-## Arquitetura
-
-| Parte | Tecnologia | Responsabilidade |
-| --- | --- | --- |
-| Frontend | Reflex e Python | Interface, navegação por perfil e chamadas autenticadas |
-| Backend | Xano | APIs, autenticação, autorização, regras de negócio e persistência |
-| Especificação | OpenSpec | Planejamento incremental de requisitos, design e tarefas |
-
-Os arquivos exportados do Xano estão organizados em `apis/`, `functions/`, `tables/` e `database/`. Alterações locais nesses arquivos não são publicadas automaticamente no backend remoto.
-
-## Estado do projeto
-
-O repositório contém a aplicação Reflex, os portais dos quatro perfis e documentação dos fluxos existentes. Os registros do projeto também incluem testes Python locais e validações manuais relatadas para alguns portais.
-
-Isso não significa que todas as verificações estejam concluídas: os registros da mudança administrativa apontam testes autenticados de endpoints Xano que ainda precisam ser executados. Portanto, este README não declara o MVP completo nem a aplicação publicada em produção. Consulte as evidências e pendências na documentação vinculada abaixo.
-
-### Escopo previsto para o MVP
-
-O planejamento geral também prevê gestão de ativos e departamentos e indicadores operacionais. Esses itens fazem parte do escopo planejado e não devem ser interpretados, apenas por constarem no plano, como entregas concluídas. A IA é prevista como apoio aos usuários, sem substituir decisões humanas.
+O técnico avalia a sugestão e registra a solução final pelo fluxo normal de atendimento. A consulta preserva o rascunho e o status do chamado.
 
 ## Executar localmente
 
-Os comandos abaixo seguem a configuração documentada para Windows PowerShell:
+No Windows PowerShell, a partir da raiz do repositório:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Edite `.env` e configure `XANO_API_BASE_URL` com a URL base do grupo de API Authentication do seu ambiente Xano. Não compartilhe nem versione credenciais ou valores privados. Depois, inicie a aplicação:
+Se já tiver um `.env`, preserve o arquivo existente. Defina `XANO_API_BASE_URL` com a URL base do grupo de APIs **Authentication** do seu ambiente Xano. Use uma conta cadastrada nesse ambiente para acessar o sistema.
 
 ```powershell
 .\.venv\Scripts\reflex.exe run
 ```
 
-A aplicação usa `/login` para autenticação. O acesso às demais áreas depende de uma sessão validada pelo Xano.
+Abra a URL exibida no terminal. A autenticação fica em `/login`, o portal do perfil em `/` e **Minhas tarefas** em `/tarefas`.
+
+Para usar **Sugerir solução**, o ambiente Xano precisa disponibilizar o endpoint `POST /chamado/{chamado_id}/sugerir-solucao` e ter o fluxo n8n configurado. As variáveis `N8N_SUGGESTION_HEADER_NAME` e `N8N_SUGGESTION_HEADER_VALUE` são configuradas no Xano. Mantenha o `.env` e as credenciais fora do Git.
+
+## Estrutura do repositório
+
+| Caminho | Conteúdo |
+| --- | --- |
+| [TI_da_Firma/](TI_da_Firma/) | Aplicação Reflex, portais por perfil, estado da sessão e cliente das APIs Xano. |
+| [apis/](apis/), [functions/](functions/) e [tables/](tables/) | Definições locais de endpoints, funções e tabelas do Xano. |
+| [database/](database/) | Exportações da estrutura do Xano. |
+| [openspec/](openspec/) | Especificações e histórico das mudanças. |
+| [tests/](tests/) | Testes Python dos portais, das permissões e do cliente Xano. |
 
 ## Documentação
 
-- [Visão geral e escopo inicial](docs/project-overview.md) — documento de concepção do projeto; algumas decisões nele são históricas e podem anteceder a implementação atual.
-- [Modelo de domínio](docs/domain-model.md)
 - [Autenticação e sessão](docs/login-sessao.md)
-- [Portal do funcionário e portal gerencial](docs/portal-gerencial.md)
+- [Portal gerencial e tarefas do funcionário](docs/portal-gerencial.md)
 - [Portal de atendimento técnico](docs/portal-tecnico.md)
+- [Sugestões de solução via n8n](openspec/changes/sugerir-solucao-chamado-n8n/specs/ticket-solution-suggestions/spec.md)
 - [Portal administrativo](docs/portal-admin.md)
-- [Dependências Python](requirements.txt)
-
-## Segurança
-
-Não versione o arquivo `.env`. A autorização efetiva dos dados e das operações deve ser garantida pelo backend Xano, não apenas pela interface. A documentação de sessão registra que o token fica no `LocalStorage` do navegador e descreve o risco associado a esse armazenamento.
+- [Modelo de domínio](docs/domain-model.md)
+- [Visão geral e planejamento inicial](docs/project-overview.md)
