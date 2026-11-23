@@ -7,6 +7,31 @@ from TI_da_Firma.auth_state import AuthState, _technical_ticket_view
 from TI_da_Firma import xano_client as xc
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"sugestoes": []}, []),
+        (
+            {"sugestoes": [{"titulo": "Rever conexão", "passos": ["Conferir cabo"], "referencia": "#101"}]},
+            [{"titulo": "Rever conexão", "passos": ["Conferir cabo"], "referencia": "#101"}],
+        ),
+        ({"sugestoes": [{"titulo": "Rever conexão", "passos": "texto"}]}, None),
+        ({"output": "resposta inesperada"}, None),
+    ],
+)
+def test_contrato_de_sugestao(monkeypatch, payload, expected):
+    def request(method, path, *, token, operational):
+        assert (method, path, token, operational) == ("POST", "chamado/12/sugerir-solucao", "test-token", True)
+        return payload
+
+    monkeypatch.setattr(xc, "_request", request)
+    if expected is None:
+        with pytest.raises(xc.XanoUnavailable):
+            xc.suggest_ticket_solutions(12, "test-token")
+    else:
+        assert xc.suggest_ticket_solutions(12, "test-token") == expected
+
+
 @pytest.fixture
 def state():
     s = AuthState(_reflex_internal_init=True)

@@ -93,6 +93,67 @@ def _history() -> rx.Component:
     )
 
 
+def _solution_card(suggestion) -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.text(suggestion["titulo"], weight="bold", white_space="pre-wrap"),
+            rx.el.ol(
+                rx.foreach(suggestion["passos"], lambda step: rx.el.li(step)),
+                list_style_type="decimal",
+                padding_left="1.5rem",
+            ),
+            rx.cond(suggestion["referencia"] != "", rx.text("Chamado de referência · ", suggestion["referencia"], size="1")),
+            align="start",
+        ),
+        width="100%",
+    )
+
+
+def _solution_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.trigger(
+            rx.button("Sugerir solução", on_click=AuthState.sugerir_solucao,
+                      disabled=AuthState.buscando_sugestao | AuthState.enviando_atendimento,
+                      size="1", variant="soft", color_scheme="green"),
+            as_child=True,
+        ),
+        rx.dialog.content(
+            rx.dialog.title("Solução sugerida"),
+            rx.dialog.description(AuthState.atendimento["titulo"], " · #", AuthState.atendimento["id"]),
+            rx.vstack(
+                rx.cond(AuthState.atendimento["category_name"] != "",
+                        rx.badge(AuthState.atendimento["category_name"], color_scheme="green")),
+                rx.cond(
+                    AuthState.buscando_sugestao,
+                    rx.hstack(rx.spinner(), rx.text("Buscando sugestões…"), role="status"),
+                    rx.cond(
+                        AuthState.erro_sugestao != "",
+                        rx.vstack(
+                            rx.text(AuthState.erro_sugestao, role="alert"),
+                            rx.button("Tentar novamente", on_click=AuthState.sugerir_solucao, variant="soft"),
+                            align="start",
+                        ),
+                        rx.cond(
+                            AuthState.sugestoes.length() > 0,
+                            rx.vstack(
+                                rx.foreach(AuthState.sugestoes, _solution_card),
+                                rx.text("Valide o procedimento antes de registrar a solução final.", size="1"),
+                                align="start", width="100%",
+                            ),
+                            rx.text("Nenhuma solução sugerida para este chamado.", role="status"),
+                        ),
+                    ),
+                ),
+                rx.hstack(rx.dialog.close(rx.button("Fechar", color_scheme="green")), justify="end", width="100%"),
+                align="start", width="100%", margin_top="1rem",
+            ),
+            max_width="36rem",
+        ),
+        open=AuthState.modal_sugestao,
+        on_open_change=AuthState.fechar_sugestao,
+    )
+
+
 def _context() -> rx.Component:
     return rx.card(
         rx.vstack(
@@ -119,7 +180,8 @@ def _context() -> rx.Component:
                     rx.select(OPERATIONAL_STATUSES, value=AuthState.status_destino,
                               on_change=AuthState.set_status_destino, aria_label="Status do atendimento",
                               disabled=AuthState.enviando_atendimento, width="100%"),
-                    rx.text("Solução final", size="2", weight="medium"),
+                    rx.hstack(rx.text("Solução final", size="2", weight="medium"),
+                              _solution_dialog(), justify="between", align="center", width="100%"),
                     rx.text_area(value=AuthState.solucao, on_change=AuthState.set_solucao,
                                  placeholder="Obrigatória para resolver ou fechar", aria_label="Solução final",
                                  max_length=5000, disabled=AuthState.enviando_atendimento,
