@@ -4,7 +4,7 @@ import reflex as rx
 BRAND = "#16765b"
 NAV = "#142d29"
 INK = "#182c2a"
-MUTED = "#647773"
+MUTED = "var(--nexo-muted)"
 BORDER = "#dfe7e4"
 BG = "#f4f7f6"
 
@@ -27,9 +27,9 @@ def notice(text) -> rx.Component:
 
 
 def metric(label, value, caption) -> rx.Component:
-    return panel(rx.vstack(rx.text(label, color=MUTED, font_size="12px"),
+    return panel(rx.vstack(rx.text(label, color=MUTED, font_size="13px", weight="medium"),
                            rx.text(value, font_size="32px", font_weight="600"),
-                           rx.text(caption, color=MUTED, font_size="12px"),
+                           rx.text(caption, color=MUTED, font_size="13px"),
                            align="start", spacing="2"), min_height="140px")
 
 

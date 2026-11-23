@@ -14,7 +14,7 @@ def _ticket(ticket: rx.Var[dict[str, str]]) -> rx.Component:
                 rx.text("#", ticket["id"], " · ", ticket["titulo"], weight="bold", size="4"),
                 rx.badge(ticket["status_name"], variant="soft"),
                 rx.text("Solicitante: ", ticket["requester_name"], " (#", ticket["solicitante_id"], ")", size="2"),
-                rx.text(ticket["category_name"], " · Prioridade: ", ticket["priority_name"], size="2", color="gray"),
+                rx.text(ticket["category_name"], " · Prioridade: ", ticket["priority_name"], size="2", color=ui.MUTED),
                 rx.text("Técnicos: ", ticket["technician_names"], size="2"),
                 align="start", spacing="2", min_width="0", flex="1",
             ),
@@ -44,7 +44,7 @@ def _list() -> rx.Component:
 def _comment(row: rx.Var[dict[str, str]]) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.flex(rx.text(row["author_name"], weight="bold"), rx.text(row["data"], size="1", color="gray"),
+            rx.flex(rx.text(row["author_name"], weight="bold"), rx.text(row["data"], size="1", color=ui.MUTED),
                     gap="3", wrap="wrap", width="100%", justify="between"),
             rx.text(row["mensagem"], white_space="pre-wrap", width="100%"),
             align="start", spacing="2", width="100%",
@@ -70,7 +70,7 @@ def _history() -> rx.Component:
                 rx.cond(
                     AuthState.historico.length() > 0,
                     rx.vstack(rx.foreach(AuthState.historico, _comment), spacing="3", width="100%"),
-                    rx.text("Ainda não há comentários neste chamado.", color="gray", size="2"),
+                    rx.text("Ainda não há comentários neste chamado.", color=ui.MUTED, size="2"),
                 ),
             ),
         ),
@@ -158,7 +158,7 @@ def _context() -> rx.Component:
     return rx.card(
         rx.vstack(
             rx.heading("Informações do chamado", size="4"),
-            rx.text("Solicitante", size="1", color="gray"),
+            rx.text("Solicitante", size="1", color=ui.MUTED),
             rx.text(AuthState.atendimento["requester_name"], " (#", AuthState.atendimento["solicitante_id"], ")"),
             rx.separator(),
             rx.text("Categoria: ", AuthState.atendimento["category_name"], size="2"),
@@ -190,7 +190,7 @@ def _context() -> rx.Component:
                               loading=AuthState.enviando_atendimento, width="100%"),
                     align="start", width="100%", spacing="3",
                 ),
-                rx.text("Alterações de status exigem associação e um chamado ainda não concluído.", size="2", color="gray"),
+                rx.text("Alterações de status exigem associação e um chamado ainda não concluído.", size="2", color=ui.MUTED),
             ),
             align="start", width="100%", spacing="3",
         ),

@@ -125,7 +125,7 @@ def ticket_detail() -> rx.Component:
             rx.heading("Histórico", size="4"),
             rx.cond(S.history_error != "", rx.callout(S.history_error, color_scheme="red"),
                     rx.cond(S.history.length() > 0, rx.foreach(S.history, history_card),
-                            rx.text("Sem comentários.", color="gray"))),
+                            rx.text("Sem comentários.", color=ui.MUTED))),
             align="start", spacing="3", width="100%")),
         align="start", spacing="4", width="100%")
 

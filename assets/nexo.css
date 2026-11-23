@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-:root { --nexo-brand:#16765b; --nexo-nav:#142d29; --nexo-ink:#182c2a; --nexo-muted:#647773; --nexo-border:#dfe7e4; --nexo-bg:#f4f7f6; }
+:root { --nexo-brand:#16765b; --nexo-nav:#142d29; --nexo-ink:#182c2a; --nexo-muted:#495e59; --nexo-border:#dfe7e4; --nexo-bg:#f4f7f6; }
 .radix-themes { --accent-9:var(--nexo-brand); --accent-10:#12634c; --accent-11:var(--nexo-brand); --accent-a3:#e5f3ec; --default-font-family:Inter,sans-serif; }
 * { box-sizing:border-box; }
 body { margin:0; }
@@ -24,12 +24,17 @@ body { margin:0; }
 .nexo-mobile-header { display:none; }
 .nexo-table { width:100%; overflow-x:auto; border:1px solid var(--nexo-border); border-radius:12px; background:white; }
 .nexo-table table { min-width:680px; border-collapse:collapse; }
-.nexo-table th { background:var(--nexo-bg); color:var(--nexo-muted); font-size:12px; font-weight:400; height:48px; }
+.nexo-table th { background:var(--nexo-bg); color:var(--nexo-muted); font-size:13px; font-weight:600; height:48px; }
 .nexo-table td { height:72px; font-size:14px; vertical-align:middle; }
 .nexo-table th,.nexo-table td { padding:16px; box-shadow:none; }
 .nexo-record-link { justify-content:flex-start; color:var(--nexo-ink); text-align:left; white-space:normal; height:auto; padding:0; margin:0; }
 .nexo-record-link:hover { color:var(--nexo-brand); text-decoration:underline; background:transparent; }
-.nexo-badge { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:400; }
+.nexo-badge { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; }
+.radix-themes .rt-TextFieldInput:enabled::placeholder,
+.radix-themes .rt-TextAreaInput:enabled::placeholder {
+  color:var(--nexo-muted);
+  opacity:1;
+}
 .nexo-mobile-records { display:none; }
 .nexo-form-columns { display:grid; grid-template-columns:minmax(0,2.07fr) minmax(260px,1fr); gap:24px; align-items:start; width:100%; }
 .nexo-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; width:100%; }
