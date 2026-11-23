@@ -3,7 +3,7 @@
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
 
 import httpx
 
@@ -254,6 +254,36 @@ def technician_ticket(ticket_id: int, token: str, client: httpx.Client | None = 
 def _positive_ticket_id(ticket_id: int) -> None:
     if ticket_id < 1:
         raise ValueError("O identificador do chamado deve ser positivo.")
+
+
+class SolutionSuggestion(TypedDict):
+    titulo: str
+    passos: list[str]
+    referencia: str
+
+
+def suggest_ticket_solutions(ticket_id: int, token: str) -> list[SolutionSuggestion]:
+    _positive_ticket_id(ticket_id)
+    data = _request("POST", f"chamado/{ticket_id}/sugerir-solucao", token=token, operational=True)
+    invalid = "Resposta inválida ao buscar sugestões."
+    if not isinstance(data, dict) or not isinstance(data.get("sugestoes"), list):
+        raise XanoUnavailable(invalid)
+
+    suggestions: list[SolutionSuggestion] = []
+    for row in data["sugestoes"]:
+        if not isinstance(row, dict):
+            raise XanoUnavailable(invalid)
+        title, steps, reference = row.get("titulo"), row.get("passos", []), row.get("referencia")
+        if (
+            not isinstance(title, str)
+            or not title.strip()
+            or not isinstance(steps, list)
+            or any(not isinstance(step, str) or not step.strip() for step in steps)
+            or (reference is not None and not isinstance(reference, str))
+        ):
+            raise XanoUnavailable(invalid)
+        suggestions.append({"titulo": title.strip(), "passos": steps, "referencia": reference or ""})
+    return suggestions
 
 
 def ticket_interactions(ticket_id: int, token: str, client: httpx.Client | None = None) -> list[dict]:

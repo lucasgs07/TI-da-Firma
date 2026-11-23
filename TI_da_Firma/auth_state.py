@@ -1,5 +1,6 @@
 """Estado de autenticação: login, restauração de sessão e logout local."""
 
+import asyncio
 import json
 from datetime import datetime, timezone
 
@@ -85,6 +86,11 @@ class AuthState(rx.State):
     comentario: str = ""
     solucao: str = ""
     status_destino: str = ""
+    modal_sugestao: bool = False
+    buscando_sugestao: bool = False
+    erro_sugestao: str = ""
+    sugestoes: list[xano_client.SolutionSuggestion] = []
+    _consulta_sugestao: int = 0
     busca_chamados: str = ""
     filtro_status: str = "Todos os status"
     filtro_prioridade: str = "Todas as prioridades"
@@ -160,7 +166,48 @@ class AuthState(rx.State):
     def _tecnico_autorizado(self) -> bool:
         return self.autenticado and self._perfil_id() == 3
 
+    @rx.event
+    def fechar_sugestao(self, aberto: bool = False):
+        if not aberto:
+            self.modal_sugestao = False
+
+    @rx.event(background=True)
+    async def sugerir_solucao(self):
+        async with self:
+            ticket_id = self.atendimento.get("id")
+            if not ticket_id or not self.pode_atualizar_atendimento or self.buscando_sugestao:
+                return
+            token = self.auth_token
+            self._consulta_sugestao += 1
+            request = self._consulta_sugestao
+            self.modal_sugestao = self.buscando_sugestao = True
+            self.erro_sugestao = ""
+            self.sugestoes = []
+
+        try:
+            suggestions = await asyncio.to_thread(xano_client.suggest_ticket_solutions, int(ticket_id), token)
+        except (xano_client.XanoRejected, xano_client.XanoOperationError,
+                xano_client.XanoUnavailable, xano_client.XanoConfigError) as exc:
+            async with self:
+                if self._consulta_sugestao != request or self.auth_token != token:
+                    return
+                self.buscando_sugestao = False
+                if isinstance(exc, xano_client.XanoRejected):
+                    self._invalidar_sessao_rejeitada()
+                else:
+                    self.erro_sugestao = "Não foi possível buscar sugestões. Tente novamente."
+        else:
+            async with self:
+                if self._consulta_sugestao == request and self.auth_token == token:
+                    self.buscando_sugestao = False
+                    if self.pode_atualizar_atendimento:
+                        self.sugestoes = suggestions
+
     def _limpar_atendimento(self) -> None:
+        self._consulta_sugestao += 1
+        self.modal_sugestao = self.buscando_sugestao = False
+        self.erro_sugestao = ""
+        self.sugestoes = []
         self.atendimento = {}
         self.historico = []
         self.tecnicos_atendimento = []
