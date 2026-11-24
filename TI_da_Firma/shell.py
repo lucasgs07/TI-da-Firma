@@ -20,9 +20,12 @@ def navigation(tasks=False) -> rx.Component:
                         href="/", class_name="" if tasks else "active"),
                 rx.link("Minhas tarefas", href="/tarefas", class_name="active" if tasks else ""))),
         rx.cond(A.perfil["perfil_id"] == "2", rx.fragment(*[
-            _nav_button(label, O.navigate(section), O.section == section, O.saving | O.loading)
+            _nav_button(label, O.navigate(section),
+                        (O.section == section) | ((O.section == "tarefa") & (section == "tarefas")),
+                        O.saving | O.loading)
             for section, label in [("chamados", "Chamados"), ("novo_chamado", "Abrir chamado"),
-                                   ("usuarios", "Cadastrar usuário"), ("nova_tarefa", "Nova tarefa")]])),
+                                   ("usuarios", "Cadastrar usuário"), ("tarefas", "Tarefas criadas"),
+                                   ("nova_tarefa", "Nova tarefa")]])),
         rx.cond(A.perfil["perfil_id"] == "1", rx.fragment(*[
             _nav_button(label, D.navigate(section), D.section == section, D.saving | D.loading)
             for section, label in [("dashboard", "Dashboard"), ("chamados", "Chamados"),
@@ -43,7 +46,8 @@ def workspace(content, tasks=False) -> rx.Component:
                  ("tarefas", "Tarefas"), ("usuarios", "Usuários"), ("logs", "Logs"), "Detalhes"),
         rx.cond(A.perfil["perfil_id"] == "2",
             rx.match(O.section, ("chamados", "Chamados"), ("novo_chamado", "Abrir chamado"),
-                     ("usuarios", "Cadastrar usuário"), ("nova_tarefa", "Nova tarefa"), "Detalhes"),
+                     ("usuarios", "Cadastrar usuário"), ("nova_tarefa", "Nova tarefa"),
+                     ("tarefas", "Tarefas criadas"), ("tarefa", "Detalhes da tarefa"), "Detalhes"),
             "Minhas tarefas" if tasks else rx.cond(A.perfil["perfil_id"] == "3", "Todos os chamados", "Meus chamados")))
     return rx.box(
         rx.box(rx.box(rx.text("Nexo"), rx.text("GESTÃO INTERNA"), class_name="nexo-brand"),

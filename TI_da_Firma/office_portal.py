@@ -6,6 +6,25 @@ from . import design as ui
 from .ticket_filters import TicketFilters, ticket_filters, ticket_results
 
 
+_MASK_TASK_DATE = rx.Var(_js_expr=r"""(event) => {
+    const input = event.currentTarget;
+    const value = input.value;
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    const formatted = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)]
+        .filter(Boolean).join("/");
+    if (value === formatted) return;
+
+    const digitsBeforeCursor = value.slice(0, input.selectionStart).replace(/\D/g, "").length;
+    let cursor = 0;
+    let digitCount = 0;
+    while (cursor < formatted.length && digitCount < digitsBeforeCursor) {
+        if (formatted[cursor++] !== "/") digitCount++;
+    }
+    input.value = formatted;
+    input.setSelectionRange(cursor, cursor);
+}""")
+
+
 def field(label: str, name: str, **props) -> rx.Component:
     return rx.vstack(rx.text(label, size="2", weight="medium"),
                      rx.input(name=name, width="100%", disabled=S.saving, **props),
@@ -78,7 +97,11 @@ def task_form() -> rx.Component:
                         rx.flex(rx.foreach(S.owner_options, _owner_checkbox), gap="4", wrap="wrap",
                                 background=ui.BG, padding="12px", width="100%"), align="start", width="100%", spacing="3"),
                     rx.box(select("Prioridade *", "prioridade", S.priority_labels),
-                           field("Prazo · opcional", "prazo", type="date"), class_name="nexo-pair"),
+                           field("Prazo (DD/MM/AAAA) · opcional", "prazo",
+                                 placeholder="DD/MM/AAAA", aria_label="Prazo (DD/MM/AAAA)",
+                                 input_mode="numeric", max_length=10,
+                                 custom_attrs={"onInput": _MASK_TASK_DATE}),
+                           class_name="nexo-pair"),
                     field("Nº do chamado · opcional", "chamado_id", type="number", min=1),
                     rx.button("Criar tarefa", type="submit", loading=S.saving),
                     align="start", spacing="5", width="100%"),
@@ -142,26 +165,35 @@ def task_detail() -> rx.Component:
     return rx.vstack(
         rx.button("Voltar às tarefas", on_click=S.navigate("tarefas"), disabled=S.saving, variant="outline"),
         rx.cond(S.task.contains("id"), rx.vstack(
-            ui.heading(S.task["titulo"], rx.fragment("Minhas tarefas / #", S.task["id"], " · Prazo: ", S.task["prazo"])),
+            ui.heading(S.task["titulo"], rx.fragment(rx.cond(S.manager, "Tarefas criadas", "Minhas tarefas"),
+                " / #", S.task["id"], " · Prazo: ", rx.cond(S.task["prazo"] != "", S.task["prazo"], "Sem prazo"))),
             rx.box(ui.panel(rx.vstack(
                 rx.heading("O que precisa ser feito", size="4"),
-                rx.text(S.task["descricao"], white_space="pre-wrap"),
-                rx.cond(S.task["concluido_em"] != "",
-                    rx.vstack(ui.badge(S.task["status_nome"]), rx.text("Concluída em: ", S.task["concluido_em"]),
+                rx.text(rx.cond(S.task["descricao"] != "", S.task["descricao"], "Sem descrição."),
+                        white_space="pre-wrap"),
+                rx.cond(S.task["status_nome"] == "Concluída",
+                    rx.vstack(ui.badge(S.task["status_nome"]),
+                              rx.cond(S.task["concluido_em"] != "", rx.text("Concluída em: ", S.task["concluido_em"])),
+                              rx.cond(S.manager & (S.task["concluido_por"] != ""),
+                                      rx.text("Concluída por: ", S.task["concluido_por"])),
                               rx.text("Solução: ", S.task["solucao_aplicada"], white_space="pre-wrap"), align="start"),
-                    rx.vstack(
+                    rx.cond(~S.manager, rx.vstack(
                         ui.field("Solução aplicada *", rx.text_area(value=S.solution, on_change=S.set_solution,
                             aria_label="Solução da tarefa", placeholder="Descreva o que foi feito para concluir a tarefa.",
                             disabled=S.saving, width="100%")),
                         ui.notice("Ao concluir, esta tarefa será finalizada para todos os responsáveis."),
                         rx.button("Concluir tarefa", on_click=S.submit("concluir", {}), loading=S.saving,
-                                  disabled=S.solution.strip() == ""), align="start", width="100%", spacing="5")),
+                                  disabled=S.solution.strip() == ""), align="start", width="100%", spacing="5"))),
                 align="start", spacing="5", width="100%")),
                 ui.panel(rx.vstack(rx.text("Responsáveis", color=ui.MUTED, font_size="12px"),
                     rx.text(S.task["member_names"]), ui.badge(S.task["status_nome"]),
+                    rx.cond(S.manager, rx.vstack(
+                        rx.text("Prioridade: ", S.task["prioridade"]),
+                        rx.cond(S.task["data_criacao"] != "", rx.text("Criada em: ", S.task["data_criacao"])),
+                        align="start", spacing="2")),
                     rx.text("Chamado vinculado", color=ui.MUTED, font_size="12px"),
                     rx.text(rx.cond(S.task["chamado_id"] != "", S.task["chamado_id"], "Sem vínculo")),
-                    rx.text("Concluir a tarefa não altera o status do chamado.", color=ui.MUTED),
+                    rx.cond(~S.manager, rx.text("Concluir a tarefa não altera o status do chamado.", color=ui.MUTED)),
                     align="start", spacing="5")), class_name="nexo-form-columns"),
             align="start", spacing="5", width="100%")), align="start", spacing="5", width="100%")
 
@@ -172,15 +204,26 @@ def _tasks() -> rx.Component:
             rx.table.cell(rx.button(item["titulo"], on_click=S.view_task(item["id"]), variant="ghost", class_name="nexo-record-link")),
             rx.table.cell(ui.badge(item["status_nome"])), rx.table.cell(item["prazo"]), rx.table.cell(item["member_names"]))
     return rx.vstack(
-        ui.heading("Seu trabalho, organizado.", "Veja as tarefas atribuídas a você e registre a solução ao concluir.",
-            rx.button("Atualizar tarefas", on_click=S.navigate("tarefas"), disabled=S.saving | S.loading, variant="outline")),
-        rx.grid(ui.metric("Pendentes", S.task_summary["pending"], "Tarefas carregadas atribuídas a você"),
-                ui.metric("Concluídas", S.task_summary["completed"], "Tarefas carregadas atribuídas a você"),
+        ui.heading(rx.cond(S.manager, "Tarefas criadas", "Seu trabalho, organizado."),
+            rx.cond(S.manager, "Acompanhe as tarefas que você criou e consulte as soluções registradas.",
+                    "Veja as tarefas atribuídas a você e registre a solução ao concluir."),
+            rx.flex(rx.button("Atualizar tarefas", on_click=S.navigate("tarefas"),
+                    disabled=S.saving | S.loading, variant="outline"),
+                    rx.cond(S.manager, rx.button("Nova tarefa", on_click=S.navigate("nova_tarefa"))),
+                    gap="12px", wrap="wrap")),
+        rx.grid(ui.metric("Pendentes", S.task_summary["pending"], rx.cond(S.manager, "Tarefas criadas por você", "Tarefas atribuídas a você")),
+                ui.metric("Concluídas", S.task_summary["completed"], rx.cond(S.manager, "Tarefas criadas por você", "Tarefas atribuídas a você")),
                 columns=rx.breakpoints(initial="1", sm="2"), gap="16px", width="100%", max_width="516px"),
-        rx.cond(S.error == "", rx.cond(S.tasks.length() > 0,
-            ui.table(["Tarefa", "Atividade", "Status", "Prazo", "Responsáveis"], S.tasks, row),
-            ui.empty("Nenhuma tarefa por aqui", "As tarefas atribuídas a você aparecerão nesta área."))),
-        ui.notice("Qualquer responsável pode concluir a tarefa inteira. A solução fica registrada para todos."),
+        rx.cond(S.manager, rx.flex(*[
+            rx.button(status, on_click=S.filter_tasks(status),
+                      variant=rx.cond(S.task_status_filter == status, "solid", "outline"))
+            for status in ("Todas", "Pendentes", "Concluídas")
+        ], gap="8px", wrap="wrap", aria_label="Filtrar tarefas por status")),
+        rx.cond(S.error == "", rx.cond(S.visible_tasks.length() > 0,
+            ui.table(["Tarefa", "Atividade", "Status", "Prazo", "Responsáveis"], S.visible_tasks, row),
+            ui.empty("Nenhuma tarefa por aqui", rx.cond(S.manager, "Nenhuma tarefa criada corresponde ao filtro.",
+                "As tarefas atribuídas a você aparecerão nesta área.")))),
+        rx.cond(~S.manager, ui.notice("Qualquer responsável pode concluir a tarefa inteira. A solução fica registrada para todos.")),
         align="start", spacing="5", width="100%")
 
 

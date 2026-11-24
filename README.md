@@ -8,10 +8,12 @@ O Nexo é uma aplicação web para abrir e atender chamados internos, distribuir
 | --- | --- |
 | Funcionário | Abre e acompanha os próprios chamados. Em **Minhas tarefas**, consulta as tarefas atribuídas a ele e registra a solução ao concluí-las. |
 | Técnico | Assume chamados abertos, registra interações e atualiza o status e a solução final dos atendimentos sob sua responsabilidade. Também consulta e conclui as próprias tarefas. |
-| Gestor | Abre chamados, consulta os chamados do seu departamento, cadastra usuários e cria tarefas para um ou mais responsáveis autorizados. O gestor de T.I. tem consulta global de chamados, escopo ampliado de cadastro e atribui tarefas aos técnicos de T.I. |
+| Gestor | Abre chamados, consulta os chamados do seu departamento, cadastra usuários e cria tarefas para um ou mais responsáveis autorizados. Em **Tarefas criadas**, acompanha as próprias tarefas e consulta a solução registrada. O gestor de T.I. tem consulta global de chamados, escopo ampliado de cadastro e atribui tarefas aos técnicos de T.I. |
 | Administrador | Acompanha indicadores no dashboard global, consulta chamados e tarefas, cadastra e edita usuários e exporta o histórico de interações em CSV. |
 
 A busca de chamados permite filtrar por prioridade, status e nome do solicitante dentro do escopo de acesso de cada perfil.
+
+Na tela **Tarefas criadas**, o gestor pode filtrar as tarefas por status e abrir o detalhe para consultar descrição, responsáveis, prioridade, prazo e chamado vinculado. A conclusão feita por um responsável vale para toda a tarefa, e a solução fica visível no detalhe. O prazo usa o formato `DD/MM/AAAA` na interface.
 
 ### Sugestão de solução no atendimento
 

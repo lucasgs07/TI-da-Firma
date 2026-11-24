@@ -28,6 +28,32 @@ def session(profile=2, department=1):
     return auth, office
 
 
+def test_manager_tracks_only_created_tasks(monkeypatch):
+    _, office = session()
+    records = {
+        12: {"id": 12, "titulo": "Pendente", "solicitante_id": 30, "prioridade_id": 2},
+        13: {"id": 13, "titulo": "Concluída", "solicitante_id": 30, "status_nome": "Concluída",
+             "solucao_aplicada": "Solução registrada"},
+        14: {"id": 14, "titulo": "De outro gestor", "solicitante_id": 31},
+    }
+
+    def list_created(token, *, created_by_me):
+        assert created_by_me
+        return list(records.values())
+
+    monkeypatch.setattr(api, "list_tasks", list_created)
+    monkeypatch.setattr(api, "list_priorities", lambda token: [{"id": 2, "nome": "Média"}])
+    monkeypatch.setattr(api, "get_task", lambda token, task_id: records[task_id])
+    run(OfficeState.navigate, office, "tarefas")
+    assert office.task_summary == {"pending": 1, "completed": 1}
+    OfficeState.filter_tasks.fn(office, "Concluídas")
+    assert [task["id"] for task in office.visible_tasks] == ["13"]
+    run(OfficeState.view_task, office, "13")
+    assert office.task["solucao_aplicada"] == "Solução registrada"
+    run(OfficeState.view_task, office, "14")
+    assert not office.task and office.error == "Tarefa não autorizada."
+
+
 @pytest.mark.parametrize("department,profile", [(1, 3), (7, 4)])
 def test_gestor_carrega_responsaveis_do_escopo_correto(monkeypatch, department, profile):
     _, s = session(department=department)

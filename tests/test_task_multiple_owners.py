@@ -25,6 +25,8 @@ def test_second_owner_can_list_open_and_complete_global_task(monkeypatch, profil
     state.solution = "Solução global"
     run(OfficeState.submit, state, "concluir", {})
     assert not state.error and state.task["status_nome"] == "Concluída"
+    assert state.tasks[0]["status_nome"] == "Concluída"
+    assert state.task_summary == {"pending": 0, "completed": 1}
     # Any other associated person gets the same global state on a new read.
     assert api.get_task("other-token", 12)["solucao_aplicada"] == "Solução global"
     assert api.get_task("other-token", 12)["concluido_em"] == "2026-10-20"
@@ -72,9 +74,25 @@ def test_manager_submits_every_checked_owner(monkeypatch, department):
     assert state.selected_owners == ["Ana", "Beto"]
     captured = []
     monkeypatch.setattr(api, "create_task", lambda *args: captured.append(args) or {"id": 12})
-    run(OfficeState.submit, state, "tarefa", {"titulo": "Tarefa conjunta", "prioridade": "Alta"})
+    run(OfficeState.submit, state, "tarefa",
+        {"titulo": "Tarefa conjunta", "prioridade": "Alta", "prazo": "24/11/2026"})
     assert captured[0][3] == [31, 32]
+    assert captured[0][5] == "2026-11-24"
     assert state.success and not state.selected_owners
+
+
+@pytest.mark.parametrize("due", ["11/24/2026", "31/02/2026"])
+def test_invalid_due_date_is_rejected_before_sending(monkeypatch, due):
+    _, state = session()
+    state.selected_owners = ["Ana"]
+    monkeypatch.setattr(api, "create_task", lambda *args: pytest.fail("Invalid due date sent"))
+    run(OfficeState.submit, state, "tarefa", {"titulo": "Tarefa", "prazo": due})
+    assert "DD/MM/AAAA" in state.error
+
+
+def test_task_displays_due_date_in_brazilian_format():
+    assert public_task({"prazo": "2026-11-24"})["prazo"] == "24/11/2026"
+    assert public_task({"prazo": None})["prazo"] == ""
 
 
 def test_empty_selection_preserves_form_and_does_not_create(monkeypatch):

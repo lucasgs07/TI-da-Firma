@@ -182,3 +182,11 @@ O sistema MUST manter o cadastro por gestores com senha inicial definida manualm
 #### Scenario: adulteração do cadastro
 - **WHEN** o gestor envia senha inválida, perfil não permitido ou departamento fora de seu escopo
 - **THEN** o backend rejeita sem criar conta
+### Requirement: Consulta das tarefas criadas pelo gestor
+
+O gestor MUST encontrar no portal todas as tarefas criadas por sua conta, inclusive após reatribuição, e filtrar entre todas, pendentes e concluídas. O detalhe MUST mostrar os dados da tarefa e da conclusão quando disponíveis. O Xano MUST verificar a autoria para a consulta fora do escopo de atribuição. A autoria, por si só, MUST NOT conceder permissão para reatribuir ou concluir a tarefa.
+
+#### Scenario: gestor acompanha suas tarefas
+
+- **WHEN** o gestor abre Tarefas criadas e seleciona Concluídas
+- **THEN** o portal lista as tarefas concluídas criadas por ele e permite consultar a solução registrada

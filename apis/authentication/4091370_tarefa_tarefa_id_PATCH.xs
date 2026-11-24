@@ -248,7 +248,7 @@ query "tarefa/{tarefa_id}" verb=PATCH {
           error = "Only the assigned worker may complete this task."
         }
       
-        precondition (($provided_input|has:"responsavel_id") == false && ($provided_input|has:"responsaveis_ids") == false) {
+        precondition ($input.responsavel_id == null && ($input.responsaveis_ids == null || ($input.responsaveis_ids|count) == 0)) {
           error_type = "accessdenied"
           error = "Technicians may not reassign tasks."
         }
@@ -312,10 +312,6 @@ query "tarefa/{tarefa_id}" verb=PATCH {
       
         conditional {
           if ($is_completed) {
-            precondition ($tarefa.concluido_em != null) {
-              error = "The completed task is missing its server-generated completion date."
-            }
-          
             precondition ($requested_solution == $tarefa.solucao_aplicada) {
               error_type = "accessdenied"
               error = "Completed tasks are immutable; only an identical solution may be submitted for idempotent completion."
@@ -333,7 +329,8 @@ query "tarefa/{tarefa_id}" verb=PATCH {
               data = {
                 solucao_aplicada : $requested_solution
                 status_chamado_id: $completion_status.id
-                concluido_em     : "now"|format_timestamp:"Y-m-d"
+                concluido_em     : now|format_timestamp:"Y-m-d"
+                concluido_por_id : $actor.id
               }
             } as $patched_tarefa
           }

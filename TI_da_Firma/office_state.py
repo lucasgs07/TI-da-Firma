@@ -1,4 +1,6 @@
 """Estado das operações gerenciais e das tarefas próprias do funcionário."""
+from datetime import date, datetime
+
 import reflex as rx
 
 from . import xano_client as api
@@ -17,10 +19,21 @@ def task_member_ids(row: dict) -> list[str]:
 
 
 def public_task(row: dict) -> dict[str, str]:
-    keys = ("id", "titulo", "descricao", "solucao_aplicada", "prazo", "concluido_em",
+    keys = ("id", "titulo", "descricao", "solucao_aplicada", "prazo", "concluido_em", "concluido_por_id",
             "responsavel_id", "solicitante_id", "requester_name", "chamado_id", "prioridade_id", "status_nome")
     result = {k: str(row.get(k) or "") for k in keys}
+    result["data_criacao"] = _interaction_view(row)["data"] if row.get("created_at") else ""
+    if result["prazo"]:
+        try:
+            result["prazo"] = date.fromisoformat(result["prazo"]).strftime("%d/%m/%Y")
+        except ValueError:
+            pass
     result["member_ids"] = ",".join(task_member_ids(row))
+    result["concluido_por"] = next(
+        (str(member["name"]) for member in row.get("responsaveis", [])
+         if isinstance(member, dict) and str(member.get("id")) == result["concluido_por_id"] and member.get("name")),
+        f"Usuário #{result['concluido_por_id']}" if result["concluido_por_id"] else "",
+    )
     result["member_names"] = ", ".join(
         str(member.get("name") or f"Usuário #{member.get('id')}")
         for member in row.get("responsaveis", []) if isinstance(member, dict)
@@ -64,10 +77,23 @@ class OfficeState(rx.State):
     selected_profile: str = ""
     solution: str = ""
     form_revision: int = 0
+    task_status_filter: str = "Todas"
+
+    @rx.var
+    def visible_tasks(self) -> list[dict[str, str]]:
+        if not self.manager or self.task_status_filter == "Todas":
+            return self.tasks
+        completed = self.task_status_filter == "Concluídas"
+        return [row for row in self.tasks if (row["status_nome"] == "Concluída") == completed]
+
+    @rx.event
+    def filter_tasks(self, status: str):
+        if self.manager and status in ("Todas", "Pendentes", "Concluídas"):
+            self.task_status_filter = status
 
     @rx.var
     def task_summary(self) -> dict[str, int]:
-        completed = sum(bool(row.get("concluido_em")) for row in self.tasks)
+        completed = sum(row["status_nome"] == "Concluída" for row in self.tasks)
         return {"pending": len(self.tasks) - completed, "completed": completed}
 
     @rx.var
@@ -161,9 +187,15 @@ class OfficeState(rx.State):
                     profile = 3 if self.ti_manager else 4
                     self.owner_options = option_rows(api.directory(token, profile,
                         int(auth.perfil["departamento_id"])), "name")
-        elif self.section == "tarefas" and auth._perfil_id() in (3, 4):
-            rows = api.list_tasks(token)
-            if any(auth.perfil.get("id") not in task_member_ids(r) for r in rows):
+        elif self.section == "tarefas":
+            actor_id = auth.perfil.get("id")
+            if self.manager:
+                rows = [r for r in api.list_tasks(token, created_by_me=True)
+                        if str(r.get("solicitante_id")) == actor_id]
+                self.priority_options = option_rows(api.list_priorities(token))
+            else:
+                rows = api.list_tasks(token)
+            if not self.manager and any(actor_id not in task_member_ids(r) for r in rows):
                 raise api.XanoUnavailable("Escopo de tarefas inválido.")
             self.tasks = [public_task(r) for r in rows]
 
@@ -181,7 +213,7 @@ class OfficeState(rx.State):
         self.form_revision += 1
         try:
             auth = await self._auth()
-            allowed = ("chamados", "novo_chamado", "nova_tarefa", "usuarios") if auth._perfil_id() == 2 else ("tarefas",)
+            allowed = ("chamados", "novo_chamado", "nova_tarefa", "usuarios", "tarefas") if auth._perfil_id() == 2 else ("tarefas",)
             if section not in allowed:
                 raise ValueError("Seção não autorizada.")
             self.section = section
@@ -240,11 +272,19 @@ class OfficeState(rx.State):
         self.loading = True
         yield
         try:
-            auth = await self._auth((3, 4))
+            auth = await self._auth()
             row = api.get_task(auth.auth_token, int(task_id))
-            if auth.perfil.get("id") not in task_member_ids(row):
+            actor_id = auth.perfil.get("id")
+            self.manager = auth._perfil_id() == 2
+            allowed = str(row.get("solicitante_id")) == actor_id if self.manager else actor_id in task_member_ids(row)
+            if not allowed:
                 raise api.XanoOperationError("Tarefa não autorizada.")
             self.task = public_task(row)
+            priority = self.task["prioridade_id"]
+            self.task["prioridade"] = next(
+                (item["label"] for item in self.priority_options if item["id"] == priority),
+                f"#{priority}" if priority else "",
+            )
             self.solution = self.task["solucao_aplicada"]
         except ERRORS as exc:
             yield await self._failure(exc)
@@ -277,10 +317,19 @@ class OfficeState(rx.State):
                 linked = str(form_data.get("chamado_id", "")).strip()
                 if not self.selected_owners:
                     raise ValueError("Selecione pelo menos um responsável.")
+                due = str(form_data.get("prazo", "")).strip()
+                if due:
+                    try:
+                        due_date = datetime.strptime(due, "%d/%m/%Y").date()
+                        if due_date.strftime("%d/%m/%Y") != due:
+                            raise ValueError
+                    except ValueError:
+                        raise ValueError("Informe um prazo válido no formato DD/MM/AAAA.") from None
+                    due = due_date.isoformat()
                 created = api.create_task(token, title, str(form_data.get("descricao", "")),
                     [option_id(self.owner_options, label) for label in self.selected_owners],
                     option_id(self.priority_options, str(form_data.get("prioridade", ""))),
-                    str(form_data.get("prazo", "")), int(linked) if linked else None)
+                    due, int(linked) if linked else None)
             elif kind == "chamado":
                 title, description = (str(form_data.get(k, "")).strip() for k in ("titulo", "descricao"))
                 if not title or not description:
@@ -295,8 +344,13 @@ class OfficeState(rx.State):
                     raise ValueError("Tarefa não autorizada.")
                 created = api.complete_task(token, int(self.task["id"]), self.solution)
                 self.task = public_task(created)
-                if self.task["concluido_em"]:
+                if self.task["status_nome"] == "Concluída":
                     self.solution = self.task["solucao_aplicada"]
+                    completion = {key: self.task[key] for key in ("concluido_em", "solucao_aplicada", "status_nome")}
+                    self.tasks = [
+                        {**row, **completion} if row["id"] == self.task["id"] else row
+                        for row in self.tasks
+                    ]
             else:
                 raise ValueError("Operação inválida.")
             self.success = f"Operação salva com sucesso (#{created.get('id', '')})."

@@ -5,6 +5,7 @@ query tarefa verb=GET {
   auth = "user"
 
   input {
+    bool criadas_por_mim?
   }
 
   stack {
@@ -31,7 +32,7 @@ query tarefa verb=GET {
         } as $access
       
         conditional {
-          if ($access.can_read) {
+          if ($access.can_read && ($input.criadas_por_mim != true || $access.task.solicitante_id == $actor.id)) {
             array.push $tarefas {
               value = $access.task
             }

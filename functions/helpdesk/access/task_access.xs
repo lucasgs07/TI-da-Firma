@@ -107,7 +107,7 @@ function "helpdesk/access/task_access" {
     }
   
     var $can_read {
-      value = ($can_manage || (($actor.perfil_id == 3 || $actor.perfil_id == 4) && $assigned))
+      value = ($can_manage || ($actor.perfil_id == 2 && $task.solicitante_id == $actor.id) || (($actor.perfil_id == 3 || $actor.perfil_id == 4) && $assigned))
     }
   
     var $requester {
@@ -124,14 +124,34 @@ function "helpdesk/access/task_access" {
       }
     }
   
+    var $status_nome {
+      value = null
+    }
+
+    conditional {
+      if ($can_read && $task.status_chamado_id != null) {
+        db.get status_chamado {
+          field_name = "id"
+          field_value = $task.status_chamado_id
+          output = ["nome"]
+        } as $task_status
+
+        var.update $status_nome {
+          value = $task_status.nome
+        }
+      }
+    }
+
     var $public_task {
       value = {
         id               : $task.id
+        created_at       : $task.created_at
         titulo           : $task.titulo
         descricao        : $task.descricao
         solucao_aplicada : $task.solucao_aplicada
         prazo            : $task.prazo
         concluido_em     : $task.concluido_em
+        concluido_por_id : $task.concluido_por_id
         solicitante_id   : $task.solicitante_id
         requester_name   : $requester.name
         responsavel_id   : $task.responsavel_id
@@ -140,6 +160,7 @@ function "helpdesk/access/task_access" {
         chamado_id       : $task.chamado_id
         prioridade_id    : $task.prioridade_id
         status_chamado_id: $task.status_chamado_id
+        status_nome      : $status_nome
       }
     }
   

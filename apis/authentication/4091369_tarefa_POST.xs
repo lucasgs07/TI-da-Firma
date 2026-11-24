@@ -112,7 +112,7 @@ query tarefa verb=POST {
   
     conditional {
       if ($provided_input|has:"responsaveis_ids") {
-        precondition (($provided_input|has:"responsavel_id") == false) {
+        precondition ($input.responsavel_id == null) {
           error_type = "inputerror"
           error = "Supply either responsaveis_ids or legacy responsavel_id."
         }

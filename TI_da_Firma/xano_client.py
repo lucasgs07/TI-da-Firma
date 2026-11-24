@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 BASE_URL_ENV = "XANO_API_BASE_URL"
 TIMEOUT_SEGUNDOS = 15.0
 USER_FIELDS = ("id", "name", "email", "perfil_id", "departamento_id")
+TASK_CREATION_ERRORS = {
+    "The selected task priority does not exist.": "A prioridade selecionada não existe. Atualize o formulário.",
+    "The related ticket does not exist.": "O chamado informado não existe. Confira o número do chamado.",
+    "The required task status 'Aberto' is not configured.": "O status inicial «Aberto» precisa ser configurado no Xano.",
+    "Select at least one responsible user.": "Selecione pelo menos um responsável.",
+    "Select a responsible user.": "Selecione um responsável.",
+}
 
 
 class XanoConfigError(Exception):
@@ -92,7 +99,21 @@ def _request(
             409: "O chamado foi alterado. Atualize antes de tentar novamente.",
             422: "Revise os dados e a configuração do status solicitado.",
         }
-        raise XanoOperationError(messages[response.status_code])
+        message = messages[response.status_code]
+        if method == "POST" and path == "tarefa":
+            try:
+                error = response.json()
+            except ValueError:
+                error = None
+            if isinstance(error, dict):
+                detail = error.get("message")
+                if isinstance(detail, str):
+                    message = TASK_CREATION_ERRORS.get(detail, message)
+                payload = error.get("payload")
+                if message == messages[response.status_code] and isinstance(payload, dict) and payload.get("param") == "prazo":
+                    message = "O Xano recusou o prazo informado. Confira a data ou deixe o campo em branco."
+            logger.warning("Xano recusou o cadastro de tarefa (HTTP %s): %s", response.status_code, message)
+        raise XanoOperationError(message)
     if response.status_code in (400, 401, 403):
         raise XanoRejected("Credenciais ou sessão rejeitadas.")
     if response.status_code != 200:
@@ -458,8 +479,9 @@ def create_task(token: str, title: str, description: str, owner: int | list[int]
     return _record(office_request("POST", "tarefa", token, payload=payload), "tarefa")
 
 
-def list_tasks(token: str) -> list[dict]:
-    return _record_list(office_request("GET", "tarefa", token), "tarefas")
+def list_tasks(token: str, *, created_by_me: bool = False) -> list[dict]:
+    params = {"criadas_por_mim": True} if created_by_me else None
+    return _record_list(office_request("GET", "tarefa", token, params=params), "tarefas")
 
 
 def get_task(token: str, task_id: int) -> dict:
