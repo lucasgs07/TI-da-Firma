@@ -53,6 +53,7 @@ Para usar **Sugerir solução**, o ambiente Xano precisa disponibilizar o endpoi
 
 ## Documentação
 
+- [Manual do Sistema (PDF)](docs/Manual_do_Sistema_TI-da-Firma.pdf)
 - [Autenticação e sessão](docs/login-sessao.md)
 - [Portal gerencial e tarefas do funcionário](docs/portal-gerencial.md)
 - [Portal de atendimento técnico](docs/portal-tecnico.md)
