@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, TypedDict
 
@@ -24,6 +25,10 @@ class XanoRejected(Exception):
 
 class XanoUnavailable(Exception):
     """Falha de rede, timeout ou resposta inesperada do Xano."""
+
+
+class XanoTicketFilterMismatch(XanoUnavailable):
+    """A consulta devolveu chamados fora dos filtros solicitados."""
 
 
 class XanoOperationError(Exception):
@@ -241,7 +246,7 @@ def search_tickets(token: str, priority_id: int | None = None,
            or (status_id is not None and str(row.get("status_chamado_id")) != str(status_id))
            or (requester and requester.casefold() not in str(row.get("requester_name") or "").casefold())
            for row in rows):
-        raise XanoUnavailable("O servidor não aplicou os filtros. Verifique a publicação dos contratos.")
+        raise XanoTicketFilterMismatch("O Xano devolveu chamados que não correspondem aos filtros selecionados.")
     return rows
 
 
@@ -282,7 +287,12 @@ def suggest_ticket_solutions(ticket_id: int, token: str) -> list[SolutionSuggest
             or (reference is not None and not isinstance(reference, str))
         ):
             raise XanoUnavailable(invalid)
-        suggestions.append({"titulo": title.strip(), "passos": steps, "referencia": reference or ""})
+        clean_steps = []
+        for step in steps:
+            step = re.sub(r"\*\*([^*\n]+)\*\*", r"\1", step).strip()
+            if not re.fullmatch(r"ID\s*:\s*#?\d+", step, flags=re.IGNORECASE):
+                clean_steps.append(step)
+        suggestions.append({"titulo": title.strip(), "passos": clean_steps, "referencia": reference or ""})
     return suggestions
 
 

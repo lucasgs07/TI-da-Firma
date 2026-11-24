@@ -57,9 +57,10 @@ def _history() -> rx.Component:
     return rx.vstack(
         rx.flex(
             rx.heading("Histórico e comentários", size="4"),
-            rx.button("Atualizar histórico", variant="ghost", on_click=AuthState.atualizar_historico,
-                      loading=AuthState.carregando_historico, disabled=AuthState.enviando_atendimento),
-            gap="3", wrap="wrap", justify="between", width="100%",
+            rx.button("Atualizar histórico", variant="soft", on_click=AuthState.atualizar_historico,
+                      loading=AuthState.carregando_historico, disabled=AuthState.enviando_atendimento,
+                      min_height="36px"),
+            gap="3", wrap="wrap", align="center", justify="between", width="100%",
         ),
         rx.cond(
             AuthState.carregando_historico,
@@ -77,13 +78,14 @@ def _history() -> rx.Component:
         rx.cond(
             AuthState.tecnico_associado,
             rx.vstack(
+                rx.separator(size="4"),
                 rx.text("Adicionar comentário", weight="medium", size="2"),
                 rx.text_area(value=AuthState.comentario, on_change=AuthState.set_comentario,
                              placeholder="Registre uma interação do atendimento", aria_label="Comentário",
                              disabled=AuthState.enviando_atendimento, width="100%", min_height="7rem"),
                 rx.button("Enviar comentário", on_click=AuthState.executar_atendimento("comentar"),
                           loading=AuthState.enviando_atendimento,
-                          disabled=AuthState.comentario.strip() == ""),
+                          disabled=AuthState.comentario.strip() == "", align_self="end"),
                 align="start", width="100%", spacing="3",
             ),
             rx.callout("Você pode consultar o histórico. Para comentar, é necessário estar associado ao chamado.",
@@ -96,16 +98,22 @@ def _history() -> rx.Component:
 def _solution_card(suggestion) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.text(suggestion["titulo"], weight="bold", white_space="pre-wrap"),
-            rx.el.ol(
-                rx.foreach(suggestion["passos"], lambda step: rx.el.li(step)),
-                list_style_type="decimal",
-                padding_left="1.5rem",
+            rx.heading(suggestion["titulo"], size="3", white_space="pre-wrap"),
+            rx.cond(
+                suggestion["passos"].length() > 0,
+                rx.el.ol(
+                    rx.foreach(suggestion["passos"], lambda step: rx.el.li(
+                        step, white_space="pre-wrap", padding_left="4px", margin_bottom="6px")),
+                    list_style_type="decimal",
+                    padding_left="1.4rem",
+                    margin="0",
+                    line_height="1.6",
+                ),
             ),
-            rx.cond(suggestion["referencia"] != "", rx.text("Chamado de referência · ", suggestion["referencia"], size="1")),
-            align="start",
+            rx.cond(suggestion["referencia"] != "", rx.badge("Chamado de referência · ", suggestion["referencia"], color_scheme="gray")),
+            align="start", spacing="3", width="100%",
         ),
-        width="100%",
+        width="100%", background=ui.BG, overflow_wrap="anywhere",
     )
 
 
@@ -119,7 +127,8 @@ def _solution_dialog() -> rx.Component:
         ),
         rx.dialog.content(
             rx.dialog.title("Solução sugerida"),
-            rx.dialog.description(AuthState.atendimento["titulo"], " · #", AuthState.atendimento["id"]),
+            rx.dialog.description(AuthState.atendimento["titulo"], " · #", AuthState.atendimento["id"],
+                                  color=ui.MUTED, size="2", overflow_wrap="anywhere"),
             rx.vstack(
                 rx.cond(AuthState.atendimento["category_name"] != "",
                         rx.badge(AuthState.atendimento["category_name"], color_scheme="green")),
@@ -137,17 +146,17 @@ def _solution_dialog() -> rx.Component:
                             AuthState.sugestoes.length() > 0,
                             rx.vstack(
                                 rx.foreach(AuthState.sugestoes, _solution_card),
-                                rx.text("Valide o procedimento antes de registrar a solução final.", size="1"),
-                                align="start", width="100%",
+                                rx.text("Valide o procedimento antes de registrar a solução final.", size="2", color=ui.MUTED),
+                                align="start", spacing="3", width="100%",
                             ),
                             rx.text("Nenhuma solução sugerida para este chamado.", role="status"),
                         ),
                     ),
                 ),
                 rx.hstack(rx.dialog.close(rx.button("Fechar", color_scheme="green")), justify="end", width="100%"),
-                align="start", width="100%", margin_top="1rem",
+                align="start", spacing="4", width="100%", margin_top="1rem",
             ),
-            max_width="36rem",
+            max_width="40rem", max_height="85dvh", overflow_y="auto",
         ),
         open=AuthState.modal_sugestao,
         on_open_change=AuthState.fechar_sugestao,
@@ -226,10 +235,10 @@ def _detail() -> rx.Component:
                                     align="start", spacing="3", width="100%",
                                 ), width="100%",
                             ),
-                            _history(), width="100%", min_width="0", spacing="5",
+                            rx.card(_history(), width="100%"), width="100%", min_width="0", spacing="5",
                         ),
-                        grid_template_columns=rx.breakpoints(initial="minmax(0, 1fr)", sm="minmax(16rem, 1fr) minmax(0, 2fr)"),
-                        gap="5", width="100%", align_items="start",
+                        grid_template_columns=rx.breakpoints(initial="minmax(0, 1fr)", lg="minmax(16rem, 1fr) minmax(0, 2fr)"),
+                        column_gap="24px", row_gap="20px", width="100%", align_items="start",
                     ),
                     align="start", spacing="4", width="100%", style={"overflow_wrap": "anywhere"},
                 ),

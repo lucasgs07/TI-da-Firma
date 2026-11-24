@@ -102,3 +102,36 @@ def test_empty_and_error_are_distinct(monkeypatch):
     monkeypatch.setattr(api, "search_tickets", failure)
     run(TicketFilters.apply, filters, False)
     assert filters.error and not filters.loading
+
+
+def test_switch_from_open_to_resolved_and_clear(monkeypatch):
+    _, auth, filters = filter_session()
+    rows = [
+        {"id": 1, "status_chamado_id": 8, "status_name": "Aberto", "solicitante_id": 10},
+        {"id": 2, "status_chamado_id": 9, "status_name": "Resolvido", "solicitante_id": 10},
+    ]
+    filters.statuses = [{"id": "8", "label": "Aberto (#8)"}, {"id": "9", "label": "Resolvido (#9)"}]
+
+    def request(*args, params, **kwargs):
+        status = params.get("status_chamado_id")
+        return [row for row in rows if status is None or row["status_chamado_id"] == status]
+
+    monkeypatch.setattr(api, "_request", request)
+    for label, expected in (("Aberto (#8)", "Aberto"), ("Resolvido (#9)", "Resolvido")):
+        TicketFilters.set_status.fn(filters, label)
+        run(TicketFilters.apply, filters, False)
+        assert [row["status_name"] for row in auth.lista_visual_chamados] == [expected]
+
+    run(TicketFilters.apply, filters, True)
+    assert [row["status_name"] for row in auth.lista_visual_chamados] == ["Aberto", "Resolvido"]
+
+
+def test_status_mismatch_is_reported_in_the_search_panel(monkeypatch):
+    _, _, filters = filter_session()
+    filters.statuses = [{"id": "9", "label": "Resolvido (#9)"}]
+    filters.status = "Resolvido (#9)"
+    monkeypatch.setattr(api, "_request", lambda *args, **kwargs: [{"status_chamado_id": 8}])
+
+    run(TicketFilters.apply, filters, False)
+
+    assert filters.error == "O Xano devolveu chamados que não correspondem aos filtros selecionados."

@@ -15,6 +15,10 @@ from TI_da_Firma import xano_client as xc
             {"sugestoes": [{"titulo": "Rever conexão", "passos": ["Conferir cabo"], "referencia": "#101"}]},
             [{"titulo": "Rever conexão", "passos": ["Conferir cabo"], "referencia": "#101"}],
         ),
+        (
+            {"sugestoes": [{"titulo": "Solução sugerida", "passos": ["**ID:** 22", "**Passos registrados:** Faça o backup."]}]},
+            [{"titulo": "Solução sugerida", "passos": ["Passos registrados: Faça o backup."], "referencia": ""}],
+        ),
         ({"sugestoes": [{"titulo": "Rever conexão", "passos": "texto"}]}, None),
         ({"output": "resposta inesperada"}, None),
     ],

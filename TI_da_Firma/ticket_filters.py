@@ -108,6 +108,8 @@ class TicketFilters(rx.State):
                 auth._invalidar_sessao_rejeitada()
                 self.reset()
                 yield rx.redirect("/login")
+            elif isinstance(exc, api.XanoTicketFilterMismatch):
+                self.error = str(exc)
             else:
                 self.error = str(exc) if isinstance(exc, (ValueError, api.XanoOperationError, api.XanoConfigError)) else "Não foi possível aplicar os filtros. Tente novamente."
         finally:
